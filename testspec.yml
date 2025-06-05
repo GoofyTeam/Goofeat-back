@@ -1,0 +1,26 @@
+version: 0.2
+phases:
+  install:
+    commands:
+      - cd app
+      - npm install -g pnpm
+      - pnpm install
+  pre_build:
+    commands:
+      - echo Preparing to run tests...
+  build:
+    commands:
+      - echo Running tests...
+      - pnpm test -- --ci --reporters=default --reporters=jest-junit
+  post_build:
+    commands:
+      - echo Tests completed.
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: yes
+reports:
+  jest-reports:
+    files:
+      - '**/junit.xml'
+    base-directory: 'app'

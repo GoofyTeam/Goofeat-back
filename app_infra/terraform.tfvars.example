@@ -1,0 +1,13 @@
+aws_region              = ""
+aws_account_id          = ""
+image_tag               = ""
+image_repo_name         = ""
+image_repo_url          = ""
+
+github_repo_owner       = ""
+github_repo_name        = ""
+github_branch           = ""
+github_oauth_token      = ""
+
+cluster_name            = ""
+service_name            = ""
