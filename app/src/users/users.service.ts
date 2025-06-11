@@ -41,4 +41,29 @@ export class UsersService {
       throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
     }
   }
+
+  async findOneByEmail(email: string): Promise<User | null> {
+    return this.usersRepository.findOneBy({ email });
+  }
+
+  async updateOAuthInfo(
+    userId: string,
+    provider: string,
+    providerId: string,
+    profilePicture?: string,
+  ): Promise<User> {
+    const user = await this.findOne(userId);
+
+    if (provider === 'google') {
+      user.googleId = providerId;
+    } else if (provider === 'apple') {
+      user.appleId = providerId;
+    }
+
+    if (profilePicture) {
+      user.profilePicture = profilePicture;
+    }
+
+    return this.usersRepository.save(user);
+  }
 }

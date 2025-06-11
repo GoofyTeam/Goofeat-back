@@ -1,13 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import * as Joi from 'joi';
 
 const validationSchema = Joi.object({
-  // NODE_PORT: Joi.string().required(),
   DB_HOST: Joi.string().required(),
   DB_PORT: Joi.string().required(),
   DB_USERNAME: Joi.string().required(),
@@ -34,10 +30,11 @@ const validationSchema = Joi.object({
       database: process.env.DB_DATABASE,
       entities: [__dirname + '/../../**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV !== 'production',
-      logging: process.env.NODE_ENV !== 'production',
+      logging: process.env.DB_LOGGING === 'true',
       autoLoadEntities: true,
     }),
   ],
   exports: [TypeOrmModule],
+  providers: [TypeOrmModule],
 })
 export class DatabaseModule {}
