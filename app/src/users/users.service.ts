@@ -46,6 +46,40 @@ export class UsersService {
     return this.usersRepository.findOneBy({ email });
   }
 
+  async findOneWithPassword(id: string): Promise<User> {
+    // Utiliser la nouvelle API de TypeORM pour sélectionner des champs spécifiques
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      select: [
+        'id',
+        'email',
+        'firstName',
+        'lastName',
+        'password',
+        'isActive',
+        'googleId',
+        'appleId',
+        'profilePicture',
+        'createdAt',
+        'updatedAt',
+        'preferences',
+        'notificationSettings',
+      ],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
+    }
+
+    return user;
+  }
+
+  async updatePassword(id: string, hashedPassword: string): Promise<User> {
+    const user = await this.findOne(id);
+    await this.usersRepository.update(id, { password: hashedPassword });
+    return user;
+  }
+
   async updateOAuthInfo(
     userId: string,
     provider: string,
