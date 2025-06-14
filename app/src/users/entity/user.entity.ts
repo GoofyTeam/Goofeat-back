@@ -40,4 +40,10 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column({ type: 'jsonb', nullable: true, default: () => '{}' })
+  preferences: Record<string, unknown>;
+
+  @Column({ type: 'jsonb', nullable: true, default: () => '{}' })
+  notificationSettings: Record<string, unknown>;
 }
