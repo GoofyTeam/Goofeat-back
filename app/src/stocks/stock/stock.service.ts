@@ -16,7 +16,7 @@ export class StockService {
     private productRepository: Repository<Product>,
   ) {}
 
-  async createWithProduct(createStockDto: CreateStockDto) {
+  async create(createStockDto: CreateStockDto) {
     const product = await this.productRepository.findOne({
       where: { id: createStockDto.productId },
     });

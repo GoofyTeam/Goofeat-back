@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger } from '@nestjs/common';
 import { APIResponse, OFF as OFFClass } from 'openfoodfacts-nodejs';
-import { Product } from '../entities/product.entity';
 import { ProductData, ProductDataService } from './product-data.interface';
 const OFF = require('openfoodfacts-nodejs');
 
@@ -83,10 +82,13 @@ export class OpenFoodFactsService implements ProductDataService {
    */
   private mapToProductData(
     openFoodFactsProduct: APIResponse.ProductsEntity | APIResponse.Product,
-  ): Partial<Product> {
+  ): ProductData {
+    // Assurons-nous que name est toujours défini comme une chaîne
+    const name: string = openFoodFactsProduct.product_name || 'Nom inconnu';
+
     return {
       code: openFoodFactsProduct.code || openFoodFactsProduct._id,
-      name: openFoodFactsProduct.product_name || 'Nom inconnu',
+      name, // Maintenant name est garanti d'être une chaîne
       description: openFoodFactsProduct.ingredients_text || '',
       imageUrl:
         openFoodFactsProduct.image_url || openFoodFactsProduct.image_front_url,

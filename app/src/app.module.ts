@@ -6,6 +6,9 @@ import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './common/database/database.module';
 import { LoggerMiddleware } from './common/logger/logger.middleware';
 import { LoggerModule } from './common/logger/logger.module';
+import { SerializerModule } from './common/serializer/serializer.module';
+import { ProductModule } from './products/product/product.module';
+import { StockModule } from './stocks/stock/stock.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -15,9 +18,12 @@ import { UsersModule } from './users/users.module';
       envFilePath: '.env',
     }),
     LoggerModule,
+    SerializerModule,
     DatabaseModule,
     UsersModule,
     AuthModule,
+    ProductModule,
+    StockModule,
   ],
   controllers: [AppController],
   providers: [AppService],

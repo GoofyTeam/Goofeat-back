@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer/types/decorators';
+import { Type } from 'class-transformer';
 import {
   IsDate,
   IsNotEmpty,

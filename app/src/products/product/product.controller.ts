@@ -6,14 +6,17 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBody,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { SerializationGroups } from '../../common/serializer/serialization-groups.decorator';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
@@ -43,8 +46,15 @@ export class ProductController {
     description: 'Liste des produits récupérée avec succès',
     type: [Product],
   })
+  @ApiQuery({
+    name: 'groups',
+    required: false,
+    description: 'Groupes de sérialisation (séparés par des virgules)',
+    example: 'product:list,default',
+  })
+  @SerializationGroups('product:list', 'default')
   @Get()
-  findAll() {
+  findAll(@Query('groups') groups?: string) {
     return this.productService.findAll();
   }
 
@@ -60,9 +70,16 @@ export class ProductController {
     type: Product,
   })
   @ApiResponse({ status: 404, description: 'Produit non trouvé' })
+  @ApiQuery({
+    name: 'groups',
+    required: false,
+    description: 'Groupes de sérialisation (séparés par des virgules)',
+    example: 'product:read,nutrition',
+  })
+  @SerializationGroups('product:read')
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.productService.findOne(+id);
+  findOne(@Param('id') id: string, @Query('groups') groups?: string) {
+    return this.productService.findOne(id);
   }
 
   @ApiOperation({ summary: 'Mettre à jour un produit' })
@@ -80,7 +97,7 @@ export class ProductController {
   @ApiResponse({ status: 404, description: 'Produit non trouvé' })
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.productService.update(+id, updateProductDto);
+    return this.productService.update(id, updateProductDto);
   }
 
   @ApiOperation({ summary: 'Supprimer un produit' })
@@ -93,6 +110,6 @@ export class ProductController {
   @ApiResponse({ status: 404, description: 'Produit non trouvé' })
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.productService.remove(+id);
+    return this.productService.remove(id);
   }
 }
