@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
@@ -14,6 +13,8 @@ export class LoggerMiddleware implements NestMiddleware {
 
     // Intercepte la méthode d'envoi pour enregistrer la réponse
     const originalSend = res.send;
+    const self = this; // Capture de la référence this du middleware
+
     res.send = function (body): Response {
       // On appelle d'abord la méthode originale
       const result = originalSend.call(this, body);
@@ -23,10 +24,10 @@ export class LoggerMiddleware implements NestMiddleware {
       const logContext = `HTTP Response (${responseTime}ms)`;
 
       // Enregistre la réponse avec le temps de traitement
-      this.loggerService.logResponse(req, res, logContext);
+      self.loggerService.logResponse(req, res, logContext);
 
       return result;
-    }.bind(this);
+    };
 
     next();
   }
