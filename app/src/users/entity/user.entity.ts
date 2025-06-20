@@ -1,7 +1,9 @@
+import { Stock } from 'src/stocks/stock/entities/stock.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -40,4 +42,23 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => Stock, (stock) => stock.user)
+  stocks: Stock[];
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    default: () => "'{}'",
+    array: false,
+  })
+  preferences: Record<string, unknown>;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    default: () => "'{}'",
+    array: false,
+  })
+  notificationSettings: Record<string, unknown>;
 }

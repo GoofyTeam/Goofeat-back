@@ -17,9 +17,16 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed": "ts-node -r tsconfig-paths/register src/common/database/seeds/run-seeds.ts",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:create": "yarn typeorm migration:create src/migrations/SeedData",
+    "migration:generate": "yarn typeorm migration:generate -d src/common/database/data-source.ts",
+    "migration:run": "yarn typeorm migration:run -d src/common/database/data-source.ts",
+    "migration:revert": "yarn typeorm migration:revert -d src/common/database/data-source.ts"
   },
   "dependencies": {
+    "@nestjs/axios": "^4.0.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -27,18 +34,25 @@
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.2.0",
     "@nestjs/typeorm": "^11.0.0",
+    "@openfoodfacts/openfoodfacts-nodejs": "git+https://github.com/openfoodfacts/openfoodfacts-nodejs.git",
     "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
+    "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "date-fns": "^4.1.0",
     "google-auth-library": "^9.15.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
+    "nest-winston": "^1.10.2",
+    "openfoodfacts-nodejs": "^0.1.0",
     "passport": "^0.7.0",
     "passport-apple": "^2.0.2",
     "passport-google-oauth20": "^2.0.0",
@@ -47,7 +61,9 @@
     "pg": "^8.16.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.24"
+    "typeorm": "^0.3.24",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -93,5 +109,12 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "typeorm": {
+    "migrations": ["src/migrations/*.ts"],
+    "entities": ["src/**/*.entity{.ts,.js}"],
+    "cli": {
+      "migrationsDir": "src/migrations"
+    }
+  }
 }

@@ -5,6 +5,8 @@ import { PassportModule } from '@nestjs/passport';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { LoginThrottlingGuard } from './guards/login-throttling.guard';
+import { LoginThrottlingService } from './login-throttling.service';
 import { AppleStrategy } from './strategies/apple.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -33,6 +35,8 @@ import { LocalStrategy } from './strategies/local.strategy';
     AppleStrategy,
     JwtStrategy,
     LocalStrategy,
+    LoginThrottlingService,
+    LoginThrottlingGuard,
   ],
   exports: [AuthService, JwtModule],
 })
