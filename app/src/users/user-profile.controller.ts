@@ -6,19 +6,17 @@ import {
   HttpCode,
   HttpStatus,
   Put,
-  Req,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import * as bcrypt from 'bcrypt';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { User } from './entity/user.entity';
 import { UsersService } from './users.service';
 
-interface RequestWithUser extends Request {
-  user: User;
-}
+// Interface RequestWithUser n'est plus nécessaire avec le décorateur @CurrentUser
 
 @Controller('user')
 export class UserProfileController {
@@ -26,9 +24,7 @@ export class UserProfileController {
 
   @Get('profile')
   @UseGuards(AuthGuard('jwt'))
-  async getProfile(@Req() req: RequestWithUser) {
-    const user = await this.usersService.findOne(req.user.id);
-
+  getProfile(@CurrentUser() user: User) {
     return {
       userId: user.id,
       firstName: user.firstName,
@@ -44,10 +40,10 @@ export class UserProfileController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
   async updateProfile(
-    @Req() req: RequestWithUser,
+    @CurrentUser() currentUser: User,
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
-    const userId = req.user.id;
+    const userId = currentUser.id;
     const user = await this.usersService.findOne(userId);
 
     // Vérification du changement d'email

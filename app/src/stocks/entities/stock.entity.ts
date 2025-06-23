@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Product } from 'src/products/product/entities/product.entity';
+import { Product } from 'src/products/entities/product.entity';
 import { User } from 'src/users/entity/user.entity';
 import {
   Column,
@@ -32,6 +32,15 @@ export class Stock {
   })
   @Column({ type: 'float' })
   quantity: number;
+
+  @ApiProperty({
+    description:
+      'Unité de mesure utilisée pour ce stock (surcharge celle du produit si spécifiée)',
+    example: 'kg',
+    required: false,
+  })
+  @Column({ nullable: true })
+  unit?: string;
 
   @ApiProperty({
     description: 'Date limite de consommation',
