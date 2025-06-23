@@ -1,10 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { Stock } from 'src/stocks/stock/entities/stock.entity';
+import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
+import { Stock } from 'src/stocks/entities/stock.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
@@ -93,7 +96,42 @@ export class Product {
   @Column({ type: 'jsonb', nullable: true })
   rawData?: any;
 
-  // @ManyToMany(() => Category)
-  // @JoinTable()
-  // categories: Category[];
+  @Expose({ groups: ['product:read', 'admin'] })
+  @ApiProperty({
+    description: 'Unité de mesure par défaut du produit',
+    example: 'tranche',
+  })
+  @Column({ nullable: true })
+  defaultUnit?: string;
+
+  @Expose({ groups: ['product:read', 'admin'] })
+  @ApiProperty({
+    description: "Taille d'une unité individuelle (en g, ml, etc.)",
+    example: 30,
+  })
+  @Column({ type: 'float', nullable: true })
+  unitSize?: number;
+
+  @Expose({ groups: ['product:read', 'admin'] })
+  @ApiProperty({
+    description: "Taille de l'emballage standard (nombre d'unités)",
+    example: 10,
+  })
+  @Column({ type: 'float', nullable: true })
+  packagingSize?: number;
+
+  @Expose({ groups: ['product:read'] })
+  @ApiProperty({
+    description: "Identifiant de l'ingrédient générique associé",
+  })
+  @Column()
+  ingredientId: string;
+
+  @ManyToOne(() => Ingredient, (ingredient) => ingredient.products, {
+    eager: true,
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'ingredientId' })
+  ingredient: Ingredient;
 }
