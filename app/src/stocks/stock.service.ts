@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { add } from 'date-fns';
+import { Product } from 'src/products/entities/product.entity';
 import { Repository } from 'typeorm';
-import { Product } from '../../products/product/entities/product.entity';
 import { CreateStockDto } from './dto/create-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { Stock } from './entities/stock.entity';

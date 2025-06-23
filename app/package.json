@@ -18,7 +18,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed": "ts-node -r tsconfig-paths/register src/common/database/seeds/run-seeds.ts",
+    "seed": "ts-node -r tsconfig-paths/register src/seed.ts",
+    "test:search": "ts-node -r tsconfig-paths/register src/test-search.ts",
+    "test:discover": "ts-node -r tsconfig-paths/register src/test-discover.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:create": "yarn typeorm migration:create src/migrations/SeedData",
     "migration:generate": "yarn typeorm migration:generate -d src/common/database/data-source.ts",
@@ -26,10 +28,13 @@
     "migration:revert": "yarn typeorm migration:revert -d src/common/database/data-source.ts"
   },
   "dependencies": {
+    "@elastic/elasticsearch": "^8.18.2",
     "@nestjs/axios": "^4.0.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/elasticsearch": "^11.1.0",
+    "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.5",
@@ -51,7 +56,9 @@
     "google-auth-library": "^9.15.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
+    "nest-commander": "^3.17.0",
     "nest-winston": "^1.10.2",
+    "nestjs-paginate": "^12.5.0",
     "openfoodfacts-nodejs": "^0.1.0",
     "passport": "^0.7.0",
     "passport-apple": "^2.0.2",
@@ -60,6 +67,7 @@
     "passport-local": "^1.0.0",
     "pg": "^8.16.0",
     "reflect-metadata": "^0.2.2",
+    "request": "^2.88.2",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.24",
     "winston": "^3.17.0",
@@ -68,7 +76,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
-    "@nestjs/cli": "^11.0.0",
+    "@nestjs/cli": "^11.0.7",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
     "@swc/cli": "^0.6.0",
@@ -111,8 +119,12 @@
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
   "typeorm": {
-    "migrations": ["src/migrations/*.ts"],
-    "entities": ["src/**/*.entity{.ts,.js}"],
+    "migrations": [
+      "src/migrations/*.ts"
+    ],
+    "entities": [
+      "src/**/*.entity{.ts,.js}"
+    ],
     "cli": {
       "migrationsDir": "src/migrations"
     }

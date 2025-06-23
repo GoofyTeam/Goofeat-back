@@ -38,6 +38,6 @@ import { LocalStrategy } from './strategies/local.strategy';
     LoginThrottlingService,
     LoginThrottlingGuard,
   ],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, JwtStrategy, LocalStrategy],
 })
 export class AuthModule {}

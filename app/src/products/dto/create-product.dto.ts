@@ -22,7 +22,8 @@ export class CreateProductDto {
 
   @ApiProperty({
     description: "URL de l'image du produit",
-    example: 'https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.633.400.jpg',
+    example:
+      'https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.633.400.jpg',
     required: false,
   })
   imageUrl?: string;

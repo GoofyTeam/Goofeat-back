@@ -7,7 +7,9 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import {
   ApiBody,
   ApiOperation,
@@ -16,7 +18,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { SerializationGroups } from '../../common/serializer/serialization-groups.decorator';
+import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
@@ -109,6 +111,7 @@ export class ProductController {
   @ApiResponse({ status: 200, description: 'Produit supprimé avec succès' })
   @ApiResponse({ status: 404, description: 'Produit non trouvé' })
   @Delete(':id')
+  @UseGuards(AuthGuard('jwt'))
   remove(@Param('id') id: string) {
     return this.productService.remove(id);
   }
