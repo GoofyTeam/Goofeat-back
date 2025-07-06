@@ -1,75 +1,55 @@
-# Documentation du Scoring de Recherche Personnalisée
+# Documentation du Scoring de Recherche
 
 ## Objectif
 
-Le but de ce système est de fournir des résultats de recherche de recettes qui sont personnalisés pour chaque utilisateur en fonction du contenu de leur stock alimentaire. Le score de chaque recette reflète sa pertinence pour l'utilisateur, en privilégiant les recettes pour lesquelles l'utilisateur possède déjà la plupart des ingrédients, et en particulier ceux qui sont proches de leur date de péremption.
+Notre objectif est de proposer à l'utilisateur les recettes les plus pertinentes en fonction de ce qu'il a dans son frigo. Le score de chaque recette est calculé pour mettre en avant celles qui utilisent des ingrédients que l'utilisateur possède déjà, en donnant une priorité aux produits proches de leur date de péremption pour lutter contre le gaspillage.
 
-## Le Script de Scoring (Painless)
+## Comment ça marche ?
 
-Le calcul du score est effectué directement dans Elasticsearch à l'aide d'un script écrit en langage "Painless". Ce script est exécuté pour chaque recette qui correspond aux critères de recherche de base (par exemple, le nom de la recette).
+Le calcul du score est réalisé par Elasticsearch au moment de la recherche, en utilisant une `function_score`. Cette approche nous permet de moduler le score de base d'une recette (sa pertinence par rapport au mot-clé cherché) en y ajoutant des bonus basés sur des critères personnalisés.
 
-### Paramètres Modifiables (Poids)
+Nous utilisons deux fonctions de script principales, chacune avec son propre poids pour ajuster son influence sur le score final.
 
-Le cœur de la personnalisation réside dans un ensemble de "poids" que vous pouvez ajuster pour modifier l'importance de chaque facteur dans le calcul du score final. Ces poids sont définis dans le fichier `src/common/elasticsearch/elasticsearch.service.ts`, dans la méthode `searchRelevantRecipes`.
+### Les Poids : Le Cœur du Réglage
+
+Vous pouvez ajuster l'importance de chaque critère en modifiant les poids directement dans le code, au sein du fichier `src/common/elasticsearch/elasticsearch.service.ts`.
 
 ```typescript
 // Fichier: src/common/elasticsearch/elasticsearch.service.ts
 
-script: {
-  source: scriptSource,
-  params: {
-    // ... autres paramètres
-    weights: {
-      quantityWeight: 1.5,
-      dlcWeight: 2.0,
-      availabilityWeight: 5.0,
-    },
+functions: [
+  {
+    script_score: { /* ... script DLC ... */ },
+    weight: 2.0, // Poids pour le score de péremption (DLC)
   },
-},
+  {
+    script_score: { /* ... script Disponibilité ... */ },
+    weight: 1.5, // Poids pour le score de disponibilité
+  },
+],
 ```
 
-- `quantityWeight` (Poids de la Quantité) : Un score de base ajouté pour chaque ingrédient que l'utilisateur possède.
-- `dlcWeight` (Poids de la DLC) : Un bonus pour les produits dont la date de péremption est proche. Plus la date est proche, plus le bonus est élevé.
-- `availabilityWeight` (Poids de la Disponibilité) : Un multiplicateur basé sur le pourcentage total d'ingrédients que l'utilisateur possède pour la recette.
+-   `weight: 2.0` (Score de Péremption) : Donne un bonus significatif aux recettes utilisant des produits qui vont bientôt périmer.
+-   `weight: 1.5` (Score de Disponibilité) : Augmente le score des recettes pour lesquelles l'utilisateur possède déjà beaucoup d'ingrédients.
 
 ## Calcul du Score en Détail
 
-Le score final d'une recette est la somme de plusieurs composantes, calculées pour chaque ingrédient de la recette.
+Le score final est le résultat d'une multiplication : `Score de la recherche initiale * (Somme des scores des fonctions)`.
 
-### 1. Boucle sur les Ingrédients
+### 1. Score de Péremption (DLC) - `weight: 2.0`
 
-Le script parcourt chaque ingrédient de la recette. Pour qu'un ingrédient contribue au score, l'utilisateur doit le posséder dans son stock (la correspondance se fait via le `productId`).
+Cette fonction a pour but de promouvoir les recettes "anti-gaspi".
 
-### 2. Score de Quantité (`quantityWeight`)
+-   **Pour qui ?** Uniquement pour les ingrédients que l'utilisateur possède et dont la date de péremption est dans moins de 7 jours.
+-   **Calcul :** Le score est basé sur une formule qui combine l'urgence (plus la date est proche, plus le score est haut) et la quantité en stock (via un logarithme, pour modérer l'effet des très grandes quantités).
+    -   `Urgence = (7 - jours restants) / 7`
+    -   `Bonus = Urgence * log(1 + quantité)`
+-   Le score final de cette fonction est la somme des bonus de tous les ingrédients concernés.
 
-Si un ingrédient requis est présent dans le stock de l'utilisateur, un score de base est immédiatement ajouté au score total.
+### 2. Score de Disponibilité - `weight: 1.5`
 
-- **Calcul :** `totalScore += quantityWeight`
-- **Exemple :** Si `quantityWeight` est `1.5`, chaque ingrédient que vous possédez ajoute 1.5 au score.
+Cette fonction mesure à quel point une recette est "faisable" avec le stock actuel de l'utilisateur.
 
-### 3. Score de Proximité de la DLC (`dlcWeight`)
-
-Si un ingrédient possédé a une date de péremption (DLC) dans les 7 prochains jours, un score bonus est ajouté. Ce bonus est plus élevé si la date est très proche.
-
-- **Calcul :** `totalScore += dlcWeight * (1.0f - (float)joursRestants / 7.0f)`
-- **Exemple :**
-    - Un produit périmant aujourd'hui (0 jours restants) obtient un bonus de `dlcWeight * 1.0`.
-    - Un produit périmant dans 3 jours obtient un bonus de `dlcWeight * (1.0 - 3.0/7.0)`.
-    - Un produit périmant dans 7 jours obtient un bonus de `dlcWeight * 0.0`.
-
-### 4. Score de Disponibilité (`availabilityWeight`)
-
-Après avoir examiné tous les ingrédients, le script calcule le "ratio de disponibilité" : le pourcentage d'ingrédients de la recette que l'utilisateur possède.
-
-- **Calcul du Ratio :** `availabilityRatio = (nombre d'ingrédients possédés) / (nombre total d'ingrédients requis)`
-- Ce ratio est ensuite multiplié par le poids de la disponibilité et ajouté au score total.
-- **Calcul du Score de Disponibilité :** `totalScore += availabilityRatio * availabilityWeight`
-- **Exemple :** Si vous avez 4 des 8 ingrédients d'une recette, le ratio est de 0.5. Le score de disponibilité ajouté sera de `0.5 * availabilityWeight`. C'est un facteur très influent qui récompense fortement les recettes que vous pouvez presque entièrement réaliser.
-
-## Score Final
-
-Le score final est la somme de tous les scores de quantité, de tous les bonus DLC, et du score final de disponibilité.
-
-`Score Final = Σ(scores de quantité) + Σ(bonus DLC) + score de disponibilité`
-
-Ce système permet une grande flexibilité. En ajustant les trois poids, vous pouvez complètement changer le comportement de la recherche pour qu'elle corresponde mieux aux objectifs de votre application (par exemple, privilégier la lutte contre le gaspillage en augmentant `dlcWeight`, ou la commodité en augmentant `availabilityWeight`).
+-   **Calcul :** C'est un simple ratio.
+    -   `Ratio = (Nombre d'ingrédients que j'ai) / (Nombre total d'ingrédients dans la recette)`
+-   **Exemple :** Si j'ai 3 des 4 ingrédients d'une recette, le score de cette fonction sera de 0.75. Si je les ai tous, le score sera de 1.0.

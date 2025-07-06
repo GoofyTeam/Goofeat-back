@@ -3,7 +3,9 @@ import { AppModule } from './app.module';
 import { SeederService } from './common/database/seeds/seeder.service';
 import { ElasticsearchService } from './common/elasticsearch/elasticsearch.service';
 import { UserPreferences } from './common/elasticsearch/interfaces/scoring-config.interface';
+import { Product } from './products/entities/product.entity';
 import { Stock } from './stocks/entities/stock.entity';
+import { User } from './users/entity/user.entity';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -23,8 +25,8 @@ async function bootstrap() {
       id: 'c8a0b2d8-9e7f-4c3a-8b1e-6d9f2c7b1a0d',
       quantity: 200,
       dlc: new Date('2025-12-31'),
-      product: { id: '3017620422003' } as any,
-      user: { id: 'test-user-id' } as any,
+      product: { id: '3017620422003' } as Product,
+      user: { id: 'test-user-id' } as User,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
@@ -35,8 +37,8 @@ async function bootstrap() {
   console.log(`\n--- Lancement de la recherche pour "${query}" ---`);
   const searchResults = await elasticsearchService.searchRecipes(
     query,
-    userStocks,
     {} as UserPreferences,
+    userStocks,
   );
 
   // 4. Afficher les résultats

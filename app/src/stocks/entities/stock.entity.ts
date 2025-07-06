@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Unit } from 'src/common/units/unit.enums';
 import { Product } from 'src/products/entities/product.entity';
 import { User } from 'src/users/entity/user.entity';
 import {
@@ -39,8 +40,12 @@ export class Stock {
     example: 'kg',
     required: false,
   })
-  @Column({ nullable: true })
-  unit?: string;
+  @Column({
+    type: 'enum',
+    enum: Unit,
+    nullable: true,
+  })
+  unit?: Unit;
 
   @ApiProperty({
     description: 'Date limite de consommation',

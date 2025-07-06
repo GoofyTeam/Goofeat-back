@@ -41,6 +41,7 @@ export interface RecipeSource {
   servings: number;
   difficulty: string;
   nutriScore: string;
+  ingredients_count: number;
   categories: string[];
   ingredients: RecipeIngredient[];
   createdAt: Date;
@@ -68,6 +69,7 @@ export class RecipeTemp {
   servings: number;
   difficulty: string;
   nutriScore: string;
+  ingredients_count: number;
   categories: string[];
   ingredients: RecipeIngredient[];
   createdAt: Date;

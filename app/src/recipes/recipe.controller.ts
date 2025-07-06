@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Body,
   Controller,
@@ -64,18 +65,11 @@ export class RecipeController {
   @ApiQuery({
     name: 'dlcFilter',
     required: false,
-    type: Boolean,
-    description:
-      'Filtre pour inclure uniquement les recettes réalisables avec le stock actuel (anti-gaspillage)',
+    description: 'Filtrer par DLC (ex: 7 pour les 7 prochains jours)',
+    type: Number,
   })
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  findAll(
-    @Query() query: PaginateQuery,
-    @CurrentUser() user: User,
-    @Query('dlcFilter') dlcFilter?: boolean,
-  ): Promise<Paginated<Recipe>> {
-    return this.recipeService.findAll(query, dlcFilter ? user : undefined);
+  findAll(@Query() query: PaginateQuery): Promise<Paginated<Recipe>> {
+    return this.recipeService.findAll(query);
   }
 
   @Get(':id')
@@ -142,10 +136,10 @@ export class RecipeController {
         userPreferences = user.preferences as UserPreferences;
       }
     }
-    return this.elasticsearchService.searchRecipes(
-      query || '',
-      userStocks,
+    // The query parameter is ignored for now, focusing on discovery
+    return this.elasticsearchService.discoverRecipes(
       userPreferences,
+      userStocks,
     );
   }
 
@@ -161,7 +155,7 @@ export class RecipeController {
     description:
       'Force la réindexation de toutes les recettes (opération admin)',
   })
-  async reindexAll(): Promise<{ success: boolean; message: string }> {
+  reindexAll(): { success: boolean; message: string } {
     // Ici, on suppose que toutes les recettes sont accessibles via le service
     // et qu'elles sont bien indexées ensuite
     // À adapter si besoin

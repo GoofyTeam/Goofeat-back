@@ -1,6 +1,7 @@
-import { QueryDslQueryContainer } from '@elastic/elasticsearch/lib/api/types';
+import { SearchRequest } from '@elastic/elasticsearch/lib/api/types';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ElasticsearchService as NestElasticsearchService } from '@nestjs/elasticsearch';
+import { UnitConversionService } from 'src/common/units/unit-conversion.service';
 import { Recipe } from 'src/recipes/entities/recipe.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import {
@@ -11,12 +12,21 @@ import {
 } from './interfaces/recipe-search.interface';
 import { UserPreferences } from './interfaces/scoring-config.interface';
 
+interface StockInfo {
+  normalizedQuantity: number;
+  baseUnit: string;
+  dlc?: Date;
+}
+
 @Injectable()
 export class ElasticsearchService implements OnModuleInit {
   private readonly logger = new Logger(ElasticsearchService.name);
   private readonly recipesIndex = 'recipes';
 
-  constructor(private readonly client: NestElasticsearchService) {}
+  constructor(
+    private readonly client: NestElasticsearchService,
+    private readonly unitConversionService: UnitConversionService,
+  ) {}
 
   async onModuleInit() {
     await this.createRecipeIndex();
@@ -45,10 +55,13 @@ export class ElasticsearchService implements OnModuleInit {
             ingredients: {
               type: 'nested',
               properties: {
-                productId: { type: 'keyword' },
+                id: { type: 'keyword' },
                 name: { type: 'text', analyzer: 'french' },
-                quantity: { type: 'float' },
+                quantity: { type: 'double' },
                 unit: { type: 'keyword' },
+                productId: { type: 'keyword' },
+                normalizedQuantity: { type: 'double' },
+                baseUnit: { type: 'keyword' },
               },
             },
           },
@@ -57,190 +70,164 @@ export class ElasticsearchService implements OnModuleInit {
     });
   }
 
-  async indexRecipe(recipe: Recipe): Promise<any> {
-    this.logger.log(
-      `[indexRecipe] Indexing recipe with name: "${recipe.name}"`,
-    );
-    const recipeDocument = {
-      id: recipe.id,
-      name: recipe.name,
-      description: recipe.description,
-      categories: recipe.categories,
-      ingredients: recipe.ingredients.map((recipeIngredient) => ({
-        productId: recipeIngredient.ingredient.products[0]?.id,
-        name: recipeIngredient.ingredient.name,
-        quantity: recipeIngredient.quantity,
-        unit: recipeIngredient.unit,
-      })),
-      ingredients_count: recipe.ingredients.filter(
-        (recipeIngredient) =>
-          recipeIngredient.ingredient.products &&
-          recipeIngredient.ingredient.products.length > 0,
-      ).length,
-    };
+  private _transformRecipeForIndex(recipe: Recipe): RecipeTemp {
+    const { id, ingredients, ...restOfRecipe } = recipe;
+    return {
+      ...restOfRecipe,
+      id,
+      ingredients_count: recipe.ingredients.length,
+      ingredients: recipe.ingredients.map((ing) => {
+        const { value: normalizedQuantity, unit: baseUnit } =
+          this.unitConversionService.normalize(ing.quantity, ing.unit);
 
-    this.logger.debug(
-      `Indexing document: ${JSON.stringify(recipeDocument, null, 2)}`,
-    );
+        return {
+          id: ing.ingredient.id,
+          name: ing.ingredient.name,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          productId: ing.ingredient.products?.[0]?.id,
+          normalizedQuantity,
+          baseUnit,
+        };
+      }),
+    };
+  }
+
+  async indexRecipe(recipe: Recipe) {
+    this.logger.log(`Indexing recipe: ${recipe.name}`);
+    const document = this._transformRecipeForIndex(recipe);
     return this.client.index({
       index: this.recipesIndex,
       id: recipe.id,
-      body: recipeDocument,
+      document,
     });
   }
 
   async updateRecipeInIndex(recipe: Recipe) {
-    this.logger.log(`Mise à jour de la recette ${recipe.id} dans l'index.`);
-    return this.indexRecipe(recipe);
+    this.logger.log(`Updating recipe in index: ${recipe.name}`);
+    const document = this._transformRecipeForIndex(recipe);
+    return this.client.update({
+      index: this.recipesIndex,
+      id: recipe.id,
+      doc: document,
+    });
   }
 
   async removeRecipeFromIndex(recipeId: string) {
-    this.logger.log(`Suppression de la recette ${recipeId} de l'index.`);
+    this.logger.log(`Removing recipe from index, id: ${recipeId}`);
     return this.client.delete({
       index: this.recipesIndex,
       id: recipeId,
     });
   }
 
-  async searchRecipes(
-    query: string,
-    userStocks: Stock[],
-    userPreferences: UserPreferences,
+  private createStocksMap(stocks: Stock[]) {
+    const stocksMap: Record<string, StockInfo> = {};
+    for (const stock of stocks) {
+      if (stock.product.id && stock.unit) {
+        const { value: normalizedQuantity, unit: baseUnit } =
+          this.unitConversionService.normalize(stock.quantity, stock.unit);
+        stocksMap[stock.product.id] = {
+          normalizedQuantity,
+          baseUnit,
+          dlc: stock.dlc,
+        };
+      }
+    }
+    return stocksMap;
+  }
+
+  private createDlcMap(stocks: Stock[]) {
+    const dlcMap: Record<string, string> = {};
+    for (const stock of stocks) {
+      if (stock.product.id && stock.dlc) {
+        dlcMap[stock.product.id] = stock.dlc.toISOString();
+      }
+    }
+    return dlcMap;
+  }
+
+  async discoverRecipes(
+    preferences: UserPreferences,
+    stocks: Stock[],
   ): Promise<RecipeSearchResult> {
-    const must_clauses: QueryDslQueryContainer[] = [];
-    if (query) {
-      must_clauses.push({
-        match: {
-          name: {
-            query: query,
-            fuzziness: 'AUTO',
-          },
-        },
-      });
-    }
+    const stocksMap = this.createStocksMap(stocks);
+    const dlcMap = this.createDlcMap(stocks);
 
-    const filter_clauses: QueryDslQueryContainer[] = [];
-    if (userStocks && userStocks.length > 0) {
-      filter_clauses.push({
-        nested: {
-          path: 'ingredients',
-          query: {
-            bool: {
-              must: [
-                {
-                  terms: {
-                    'ingredients.productId': userStocks.map(
-                      (stock) => stock.product.id,
-                    ),
-                  },
-                },
-              ],
-            },
-          },
-        },
-      });
-    }
-
-    const must_not_clauses: QueryDslQueryContainer[] = [];
-    if (
-      userPreferences?.excludedCategories &&
-      userPreferences.excludedCategories.length > 0
-    ) {
-      must_not_clauses.push({
-        terms: {
-          categories: userPreferences.excludedCategories,
-        },
-      });
-    }
-
-    const should_clauses: QueryDslQueryContainer[] = [];
-    if (
-      userPreferences?.preferredCategories &&
-      userPreferences.preferredCategories.length > 0
-    ) {
-      should_clauses.push({
-        match: {
-          categories: {
-            query: userPreferences.preferredCategories.join(' '),
-            boost: 2.0,
-          },
-        },
-      });
-    }
-
-    const now = new Date().getTime();
-
-    const stocksMap = userStocks.reduce((map, stock) => {
-      if (stock.product) {
-        map[stock.product.id] = stock.quantity;
-      }
-      return map;
-    }, {});
-
-    const dlcMap = userStocks.reduce((map, stock) => {
-      if (stock.product && stock.dlc) {
-        map[stock.product.id] = new Date(stock.dlc).getTime();
-      }
-      return map;
-    }, {});
-
-    const searchRequest = {
+    const searchRequest: SearchRequest = {
       collapse: {
         field: 'name.keyword',
       },
       index: this.recipesIndex,
-      size: 20,
-      body: {
-        query: {
-          function_score: {
-            query: {
-              bool: {
-                must: must_clauses,
-                must_not: must_not_clauses,
-                should: should_clauses,
-                minimum_should_match: should_clauses.length > 0 ? 1 : 0,
+      query: {
+        function_score: {
+          query: {
+            bool: {
+              must: {
+                match_all: {},
               },
+              should: (preferences.preferredCategories || []).map(
+                (category) => ({
+                  match: {
+                    categories: {
+                      query: category,
+                      boost: 2,
+                    },
+                  },
+                }),
+              ),
+              minimum_should_match: 1,
             },
-            functions: [
-              {
-                script_score: {
-                  script: {
-                    source: `
-                      double dlcScore = 0.0;
-                      if (params._source.ingredients == null || params._source.ingredients.isEmpty()) {
-                        return 0.0;
+          },
+          functions: [
+            {
+              filter: { match_all: {} },
+              script_score: {
+                script: {
+                  source: `
+                      double dlcScore = 0;
+                      if (params.dlc == null || params.dlc.isEmpty()) {
+                        return 0;
                       }
+                      long today = new Date().getTime();
+                      int dlcCount = 0;
                       for (def ingredient : params._source.ingredients) {
-                        if (params.dlcs.containsKey(ingredient.productId) && params.stocks.containsKey(ingredient.productId)) {
-                          long dlcTime = (long) params.dlcs[ingredient.productId];
-                          long daysUntilExpiry = (dlcTime - params.now) / (1000 * 3600 * 24);
-                          if (daysUntilExpiry >= 0 && daysUntilExpiry < 7) {
-                            double urgency = (7.0 - daysUntilExpiry) / 7.0;
-                            double quantity = (double) params.stocks[ingredient.productId];
-                            dlcScore += urgency * Math.log(1.0 + quantity);
+                        if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
+                                                    long dlcDate = java.time.ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
+                          long diff = dlcDate - today;
+                          if (diff > 0) {
+                            double days = diff / (1000.0 * 60 * 60 * 24);
+                            dlcScore += 1.0 / (1.0 + days); 
+                          } else {
+                            dlcScore -= 1.0; 
                           }
+                          dlcCount++;
                         }
                       }
-                      return dlcScore;
+                      return dlcCount > 0 ? dlcScore / dlcCount : 0;
                     `,
-                    params: { dlcs: dlcMap, now: now, stocks: stocksMap },
-                  },
+                  params: { dlc: dlcMap },
                 },
-                weight: 2.0,
               },
-              {
-                script_score: {
-                  script: {
-                    source: `
-                      float availabilityScore = 0;
+              weight: 5,
+            },
+            {
+              filter: { match_all: {} },
+              script_score: {
+                script: {
+                  source: `
+                      double availabilityScore = 0;
                       if (params._source.ingredients == null || params._source.ingredients.isEmpty()) {
-                        return 1.0;
+                        return 1.0; // No ingredients required, perfect availability
                       }
                       int totalIngredients = params._source.ingredients.size();
                       int availableIngredients = 0;
                       for (def ingredient : params._source.ingredients) {
-                        if (params.stocks.containsKey(ingredient.productId)) {
-                          availableIngredients++;
+                        if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
+                           def stock = params.stocks[ingredient.productId];
+                           if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
+                             availableIngredients++;
+                           }
                         }
                       }
                       if (totalIngredients > 0) {
@@ -248,21 +235,162 @@ export class ElasticsearchService implements OnModuleInit {
                       }
                       return availabilityScore;
                     `,
-                    params: { stocks: stocksMap },
-                  },
+                  params: { stocks: stocksMap },
                 },
-                weight: 1.5,
               },
-            ],
-            score_mode: 'sum',
-            boost_mode: 'multiply',
-          },
+              weight: 1.5,
+            },
+          ],
+          score_mode: 'sum',
+          boost_mode: 'multiply',
         },
       },
     };
 
     this.logger.debug(
       `Querying Elasticsearch for discovery: ${JSON.stringify(
+        searchRequest,
+        null,
+        2,
+      )}`,
+    );
+
+    const result = await this.client.search<RecipeSource>(searchRequest);
+
+    const recipes: ScoredRecipe[] = result.hits.hits
+      .filter((hit) => hit._id && hit._source)
+      .map((hit) => ({
+        ...(hit._source as RecipeTemp),
+        id: hit._id!,
+        score: hit._score || 0,
+      }));
+
+    return {
+      total:
+        typeof result.hits.total === 'number'
+          ? result.hits.total
+          : (result.hits.total?.value ?? 0),
+      results: recipes,
+    };
+  }
+
+  async searchRecipes(
+    query: string,
+    preferences: UserPreferences,
+    stocks: Stock[],
+  ): Promise<RecipeSearchResult> {
+    const stocksMap = this.createStocksMap(stocks);
+
+    const searchRequest: SearchRequest = {
+      collapse: {
+        field: 'name.keyword',
+      },
+      index: this.recipesIndex,
+      query: {
+        function_score: {
+          query: {
+            bool: {
+              must: [
+                {
+                  multi_match: {
+                    query,
+                    fields: ['name^3', 'description', 'ingredients.name^2'],
+                    fuzziness: 'AUTO',
+                  },
+                },
+              ],
+              should: (preferences.preferredCategories || []).map(
+                (category) => ({
+                  match: {
+                    categories: {
+                      query: category,
+                      boost: 2,
+                    },
+                  },
+                }),
+              ),
+              minimum_should_match:
+                (preferences.preferredCategories || []).length > 0 ? 1 : 0,
+              must_not: [
+                {
+                  match: {
+                    'ingredients.name': {
+                      query: (preferences.allergenes || []).join(' '),
+                    },
+                  },
+                },
+              ],
+            },
+          },
+          functions: [
+            {
+              filter: { match_all: {} },
+              script_score: {
+                script: {
+                  source: `
+                      double dlcScore = 0;
+                      if (params.dlc == null || params.dlc.isEmpty()) {
+                        return 0;
+                      }
+                      long today = new Date().getTime();
+                      int dlcCount = 0;
+                      for (def ingredient : params._source.ingredients) {
+                        if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
+                          long dlcDate = ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
+                          long diff = dlcDate - today;
+                          if (diff > 0) {
+                            double days = diff / (1000.0 * 60 * 60 * 24);
+                            dlcScore += 1.0 / (1.0 + days); 
+                          } else {
+                            dlcScore -= 1.0; 
+                          }
+                          dlcCount++;
+                        }
+                      }
+                      return dlcCount > 0 ? dlcScore / dlcCount : 0;
+                    `,
+                  params: { dlc: this.createDlcMap(stocks) },
+                },
+              },
+              weight: 1.2,
+            },
+            {
+              filter: { match_all: {} },
+              script_score: {
+                script: {
+                  source: `
+                      double availabilityScore = 0;
+                      if (params._source.ingredients == null || params._source.ingredients.isEmpty()) {
+                        return 1.0; // No ingredients required, perfect availability
+                      }
+                      int totalIngredients = params._source.ingredients.size();
+                      int availableIngredients = 0;
+                      for (def ingredient : params._source.ingredients) {
+                        if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
+                           def stock = params.stocks[ingredient.productId];
+                           if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
+                             availableIngredients++;
+                           }
+                        }
+                      }
+                      if (totalIngredients > 0) {
+                        availabilityScore = (float)availableIngredients / totalIngredients;
+                      }
+                      return availabilityScore;
+                    `,
+                  params: { stocks: stocksMap },
+                },
+              },
+              weight: 1.5,
+            },
+          ],
+          score_mode: 'sum',
+          boost_mode: 'multiply',
+        },
+      },
+    };
+    this.logger.debug(
+      `Querying Elasticsearch for search: ${JSON.stringify(
         searchRequest,
         null,
         2,
