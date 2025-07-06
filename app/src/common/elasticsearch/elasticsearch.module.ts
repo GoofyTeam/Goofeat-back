@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Recipe } from 'src/recipes/entities/recipe.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ElasticsearchModule as NestElasticsearchModule } from '@nestjs/elasticsearch';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Recipe } from 'src/recipes/entities/recipe.entity';
 
+import { UnitsModule } from '../units/units.module';
 import { ElasticsearchService } from './elasticsearch.service';
 import { RecipeListener } from './listener/recipe.listener';
 
 @Module({
   imports: [
+    UnitsModule,
     TypeOrmModule.forFeature([Recipe]),
     NestElasticsearchModule.registerAsync({
       imports: [ConfigModule],

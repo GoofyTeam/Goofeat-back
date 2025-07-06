@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
+import { Unit } from 'src/common/units/unit.enums';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import {
   Column,
@@ -49,8 +50,8 @@ export class RecipeIngredient {
     description: 'Unité de mesure',
     example: 'pièce',
   })
-  @Column({ type: 'varchar' })
-  unit: string;
+  @Column({ type: 'enum', enum: Unit })
+  unit: Unit;
 
   @Expose({ groups: ['recipe:read', 'recipe-ingredient:read'] })
   @ApiProperty({

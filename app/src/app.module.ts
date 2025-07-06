@@ -8,6 +8,7 @@ import { CategoryModule } from './categories/category.module';
 import { DatabaseModule } from './common/database/database.module';
 import { SeederModule } from './common/database/seeds/seeder.module';
 import { ElasticsearchModule } from './common/elasticsearch/elasticsearch.module';
+import { UnitsModule } from './common/units/units.module';
 import { LoggerMiddleware } from './common/logger/logger.middleware';
 import { LoggerModule } from './common/logger/logger.module';
 import { SerializerModule } from './common/serializer/serializer.module';
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module';
     EventEmitterModule.forRoot(),
     SeederModule,
     ElasticsearchModule,
+    UnitsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

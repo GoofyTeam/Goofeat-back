@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
+import { Unit } from 'src/common/units/unit.enums';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import {
@@ -101,8 +102,8 @@ export class Product {
     description: 'Unité de mesure par défaut du produit',
     example: 'tranche',
   })
-  @Column({ nullable: true })
-  defaultUnit?: string;
+  @Column({ type: 'enum', enum: Unit, nullable: true })
+  defaultUnit?: Unit;
 
   @Expose({ groups: ['product:read', 'admin'] })
   @ApiProperty({

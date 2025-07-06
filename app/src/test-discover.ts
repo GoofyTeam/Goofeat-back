@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { NestFactory } from '@nestjs/core';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AppModule } from 'src/app.module';
@@ -7,6 +8,7 @@ import { UserPreferences } from 'src/common/elasticsearch/interfaces/scoring-con
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import { In, Repository } from 'typeorm';
+import { Unit } from './common/units/unit.enums';
 
 async function testDiscover() {
   const app = await NestFactory.create(AppModule, {
@@ -19,7 +21,6 @@ async function testDiscover() {
   const seederService = app.get(SeederService);
 
   console.log('--- Démarrage du script de test de découverte ---');
-
   // Lancement du seeding pour s'assurer que les données sont à jour
   console.log('--- Lancement du seeding complet... ---');
   await seederService.seedAll();
@@ -38,7 +39,7 @@ async function testDiscover() {
       'Oeuf',
       'Parmesan',
       'Tomate',
-      'Oignon',
+      'Oignon jaune',
     ];
     const ingredients = await ingredientRepository.find({
       where: { name: In(ingredientNames) },
@@ -47,39 +48,37 @@ async function testDiscover() {
 
     if (ingredients.length < ingredientNames.length) {
       console.warn(
-        'Certains ingrédients de base manquent dans la base de données. Avez-vous lancé le seed ?',
+        'Certains ingrédients de base manquent dans la BDD. Le test peut être faussé.',
       );
     }
-
-    const today = new Date();
-    const dlcTresProche = new Date();
-    dlcTresProche.setDate(today.getDate() + 2); // DLC dans 2 jours
 
     const userStocks: Stock[] = ingredients
-      .filter((ing) => ing.products && ing.products.length > 0)
-      .map((ing) => {
+      .map((ingredient) => {
+        if (!ingredient.products || ingredient.products.length === 0) {
+          console.warn(
+            `L'ingrédient ${ingredient.name} n'a pas de produit associé.`,
+          );
+          return null;
+        }
         const stock = new Stock();
-        stock.product = ing.products[0];
-        stock.quantity = 150;
-        stock.unit = 'g';
-        // Simuler une DLC très proche pour les lardons pour tester l'anti-gaspillage
-        stock.dlc =
-          ing.name === 'Lardons'
-            ? dlcTresProche
-            : new Date(today.getTime() + 20 * 24 * 60 * 60 * 1000); // DLC dans 20 jours pour les autres
+        stock.product = ingredient.products[0];
+        stock.quantity = 200; // Quantité généreuse pour couvrir les besoins
+        stock.unit = Unit.G;
+        stock.dlc = new Date();
+        stock.dlc.setDate(stock.dlc.getDate() + 7); // DLC dans une semaine
+        // Simuler un ID pour la logique qui pourrait en dépendre, même si non sauvegardé
+        stock.id = Math.random().toString(36).substring(2);
         return stock;
-      });
+      })
+      .filter((stock): stock is Stock => stock !== null); // Filtrer les ingrédients sans produits
 
-    if (userStocks.length === 0) {
-      throw new Error(
-        "Impossible de créer un stock. Aucun des ingrédients spécifiés n'a de produits associés.",
-      );
-    }
     console.log(
       'Stock utilisateur créé:',
       userStocks.map((s) => ({
         name: s.product.name,
         dlc: s.dlc.toISOString().split('T')[0],
+        quantity: s.quantity,
+        unit: s.unit,
       })),
     );
 
@@ -93,10 +92,9 @@ async function testDiscover() {
 
     // 3. Lancer la recherche/découverte
     console.log('--- Lancement de la recherche/découverte de recettes ---');
-    const searchResults = await elasticsearchService.searchRecipes(
-      '', // Pas de requête textuelle, on se base sur le stock et les préférences pour la découverte
-      userStocks,
+    const searchResults = await elasticsearchService.discoverRecipes(
       userPreferences,
+      userStocks,
     );
 
     // 4. Afficher les résultats
@@ -112,6 +110,7 @@ async function testDiscover() {
       console.log('Aucune recette suggérée.');
     }
   } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const errorMessage = error.meta?.body
       ? JSON.stringify(error.meta.body, null, 2)
       : error;
@@ -122,4 +121,4 @@ async function testDiscover() {
   }
 }
 
-testDiscover();
+void testDiscover();

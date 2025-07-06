@@ -50,7 +50,7 @@ export class StockService {
   }
 
   update(id: number, updateStockDto: UpdateStockDto) {
-    return `This action updates a #${id} stock`;
+    return `This action updates a #${id} stock ${updateStockDto.categoryId}`;
   }
 
   remove(id: number) {

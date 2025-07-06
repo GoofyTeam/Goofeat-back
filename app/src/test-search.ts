@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { NestFactory } from '@nestjs/core';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AppModule } from 'src/app.module';
@@ -7,6 +8,7 @@ import { UserPreferences } from 'src/common/elasticsearch/interfaces/scoring-con
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import { In, Repository } from 'typeorm';
+import { Unit } from './common/units/unit.enums';
 
 async function testSearch() {
   const app = await NestFactory.create(AppModule, {
@@ -16,12 +18,18 @@ async function testSearch() {
   const ingredientRepository = app.get<Repository<Ingredient>>(
     getRepositoryToken(Ingredient),
   );
-  // const recipeRepository = app.get<Repository<Recipe>>(
-  //   getRepositoryToken(Recipe),
-  // );
   const seederService = app.get(SeederService);
 
   console.log('--- Démarrage du script de test de recherche ---');
+
+  // Lancement du seeding pour s'assurer que les données sont à jour
+  console.log('--- Lancement du seeding complet... ---');
+  await seederService.seedAll();
+  console.log('--- Seeding terminé ---');
+
+  // Attendre que les événements d'indexation se propagent
+  console.log("--- Attente de 2 secondes pour l'indexation... ---");
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
   try {
     // 1. Créer un stock utilisateur fictif
@@ -32,18 +40,16 @@ async function testSearch() {
       'Oeuf',
       'Parmesan',
       'Tomate',
-      'Pâtes',
+      'Oignon jaune',
     ];
     const ingredients = await ingredientRepository.find({
       where: { name: In(ingredientNames) },
       relations: ['products'],
     });
 
-    console.log('Ingrédients récupérés:', JSON.stringify(ingredients, null, 2));
-
-    if (ingredients.length < 3) {
-      throw new Error(
-        "Impossible de récupérer suffisamment d'ingrédients pour le test. Avez-vous lancé le seed ?",
+    if (ingredients.length < ingredientNames.length) {
+      console.warn(
+        "Certains ingrédients n'ont pas pu être trouvés. Le stock sera partiel.",
       );
     }
 
@@ -52,25 +58,34 @@ async function testSearch() {
     dlcProche.setDate(today.getDate() + 3); // DLC dans 3 jours
 
     const userStocks: Stock[] = ingredients
-      .filter((ing) => ing.products && ing.products.length > 0) // Assurer qu'il y a des produits associés
       .map((ing) => {
+        if (!ing.products || ing.products.length === 0) {
+          console.warn(
+            `L'ingrédient "${ing.name}" n'a pas de produit associé et sera ignoré.`,
+          );
+          return null;
+        }
         const stock = new Stock();
-        stock.product = ing.products[0]; // Utiliser le premier produit de la liste
-        stock.quantity = 200; // Quantité généreuse
-        stock.unit = 'g';
-        // Simuler une DLC proche pour les lardons pour tester l'anti-gaspillage
+        stock.product = ing.products[0];
+        stock.quantity = 200;
+        stock.unit = Unit.G;
         stock.dlc =
           ing.name === 'Lardons'
             ? dlcProche
-            : new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000); // DLC dans 30 jours pour les autres
+            : new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
         return stock;
-      });
+      })
+      .filter((stock): stock is Stock => stock !== null);
 
-    if (userStocks.length < 3) {
-      throw new Error(
-        "Impossible de créer un stock suffisant. Certains ingrédients n'ont pas de produits associés.",
-      );
-    }
+    console.log(
+      'Stock utilisateur créé:',
+      userStocks.map((s) => ({
+        name: s.product.name,
+        dlc: s.dlc.toISOString().split('T')[0],
+        quantity: s.quantity,
+        unit: s.unit,
+      })),
+    );
 
     // 2. Définir les préférences utilisateur
     const userPreferences: UserPreferences = {
@@ -78,36 +93,48 @@ async function testSearch() {
       preferredCategories: ['Plat principal', 'Pâtes'],
       dietaryRestrictions: [],
     };
+    console.log('Préférences utilisateur:', userPreferences);
 
     // 3. Lancer la recherche
     const query = 'pâtes';
-
-    // Log the mapping to debug
-
+    console.log(`--- Lancement de la recherche pour "${query}" ---`);
     const searchResults = await elasticsearchService.searchRecipes(
       query,
-      userStocks,
       userPreferences,
+      userStocks,
     );
 
     // 4. Afficher les résultats
     console.log(`\n--- Résultats de la recherche ---`);
     if (searchResults.results.length > 0) {
+      console.log(`Total de recettes trouvées: ${searchResults.total}`);
       searchResults.results.forEach((recipe) => {
-        console.log(`- ${recipe.name} (Score: ${recipe.score})`);
+        console.log(
+          `- ${recipe.name} (Score: ${recipe.score.toFixed(2)}) - Ingrédients: ${recipe.ingredients.map((i) => i.name).join(', ')}`,
+        );
       });
     } else {
       console.log('Aucune recette trouvée.');
     }
   } catch (error) {
-    console.error(
-      'Le script de test a échoué:',
-      JSON.stringify(error.meta?.body || error, null, 2),
-    );
+    // Type guard for Elasticsearch errors
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'meta' in error &&
+      error.meta?.body
+    ) {
+      console.error(
+        'Le script de test a échoué (Elasticsearch error):',
+        JSON.stringify(error.meta.body, null, 2),
+      );
+    } else {
+      console.error('Le script de test a échoué:', error);
+    }
   } finally {
     await app.close();
     console.log('\n--- Script de test terminé ---');
   }
 }
 
-testSearch();
+void testSearch();

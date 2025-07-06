@@ -2,13 +2,14 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
-  IsString,
   IsUUID,
   Min,
 } from 'class-validator';
+import { Unit } from 'src/common/units/unit.enums';
 
 export class CreateRecipeIngredientDto {
   @ApiProperty({
@@ -35,8 +36,8 @@ export class CreateRecipeIngredientDto {
     example: 'pièce',
   })
   @IsNotEmpty()
-  @IsString()
-  unit: string;
+  @IsEnum(Unit)
+  unit: Unit;
 
   @ApiProperty({
     description: "Indique si l'ingrédient est optionnel",
