@@ -15,6 +15,49 @@ import {
 
 @Entity('ingredients')
 export class Ingredient {
+  /**
+   * Tag unique Open Food Facts (ex: en:garlic-extract)
+   */
+  @ApiProperty({ description: 'Tag unique OFF', example: 'en:garlic-extract' })
+  @Column({ type: 'varchar', unique: true, nullable: false })
+  offTag: string;
+
+  /**
+   * Nom français (issu de la taxonomie OFF)
+   */
+  @ApiProperty({ description: 'Nom français', example: "Extrait d'ail" })
+  @Column({ type: 'varchar', nullable: false })
+  nameFr: string;
+
+  /**
+   * Nom anglais (issu de la taxonomie OFF)
+   */
+  @ApiProperty({ description: 'Nom anglais', example: 'Garlic extract' })
+  @Column({ type: 'varchar', nullable: false })
+  nameEn: string;
+
+  /**
+   * Identifiant Wikidata (optionnel)
+   */
+  @ApiProperty({
+    description: 'Wikidata ID',
+    example: 'Q123456',
+    required: false,
+  })
+  @Column({ type: 'varchar', nullable: true })
+  wikidata?: string;
+
+  /**
+   * Tags OFF parents (pour la hiérarchie)
+   */
+  @ApiProperty({
+    description: 'Tags OFF parents',
+    type: [String],
+    required: false,
+  })
+  @Column({ type: 'varchar', array: true, nullable: true })
+  parentOffTags?: string[];
+
   @Expose({ groups: ['default', 'ingredient:read'] })
   @ApiProperty({
     description: "Identifiant unique de l'ingrédient",
@@ -34,17 +77,18 @@ export class Ingredient {
   @Expose({ groups: ['ingredient:read'] })
   @ApiProperty({
     description: 'Identifiant de la catégorie parente',
+    required: false,
   })
-  @Column()
-  categoryId: string;
+  @Column({ nullable: true })
+  categoryId?: string;
 
   @ManyToOne(() => Category, {
     eager: true,
-    nullable: false,
+    nullable: true,
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'categoryId' })
-  category: Category;
+  category?: Category;
 
   @OneToMany(() => Product, (product) => product.ingredient)
   products: Product[];

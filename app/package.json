@@ -22,6 +22,7 @@
     "seed": "ts-node -r tsconfig-paths/register src/seed.ts",
     "test:search": "ts-node -r tsconfig-paths/register src/test-search.ts",
     "test:discover": "TS_NODE_CACHE=false ts-node -r tsconfig-paths/register src/test-discover.ts",
+    "import:ingredients:off": "ts-node -r tsconfig-paths/register src/manual-import-ingredients-off.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:create": "yarn typeorm migration:create src/migrations/SeedData",
     "migration:generate": "yarn typeorm migration:generate -d src/common/database/data-source.ts",
