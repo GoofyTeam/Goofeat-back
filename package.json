@@ -14,6 +14,7 @@
     "lint": "npm --prefix app run lint",
     "format": "npm --prefix app run format",
     "test": "echo 'Configure your test runner ici'",
-    "type-check": "npm --prefix app run type-check"
+    "type-check": "npm --prefix app run type-check",
+    "import:ingredients:off": "ts-node app/src/manual-import-ingredients-off.ts"
   }
 }
