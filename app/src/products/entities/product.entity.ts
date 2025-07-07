@@ -17,7 +17,9 @@ import {
 
 @Entity('products')
 export class Product {
-  @Expose({ groups: ['default', 'product:read', 'product:list'] })
+  @Expose({
+    groups: ['default', 'product:read', 'product:list', 'product:barcode-min'],
+  })
   @ApiProperty({
     description: 'Identifiant du produit (code-barres)',
     example: '3017620422003',
@@ -28,11 +30,15 @@ export class Product {
   @OneToMany(() => Stock, (stock) => stock.product)
   stocks: Stock[];
 
-  @Expose({ groups: ['default', 'product:read', 'product:list'] })
+  @Expose({
+    groups: ['default', 'product:read', 'product:list', 'product:barcode-min'],
+  })
   @Column({ type: 'varchar' })
   code: string;
 
-  @Expose({ groups: ['default', 'product:read', 'product:list'] })
+  @Expose({
+    groups: ['default', 'product:read', 'product:list', 'product:barcode-min'],
+  })
   @ApiProperty({
     description: 'Nom du produit',
     example: 'Nutella',
@@ -121,7 +127,7 @@ export class Product {
   @Column({ type: 'float', nullable: true })
   packagingSize?: number;
 
-  @Expose({ groups: ['product:read'] })
+  @Expose({ groups: ['product:read', 'product:barcode-min'] })
   @ApiProperty({
     description: "Identifiant de l'ingrédient générique associé",
   })
@@ -134,5 +140,6 @@ export class Product {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'ingredientId' })
+  @Expose({ groups: ['product:read', 'product:barcode-min'] })
   ingredient: Ingredient;
 }
