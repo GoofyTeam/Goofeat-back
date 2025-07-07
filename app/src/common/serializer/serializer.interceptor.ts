@@ -8,6 +8,7 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { classToPlain, ClassTransformOptions } from 'class-transformer';
 import { Request } from 'express';
 import { Observable } from 'rxjs';
@@ -17,43 +18,56 @@ export const SERIALIZATION_GROUP_KEY = 'serializationGroups';
 
 @Injectable()
 export class SerializerInterceptor implements NestInterceptor {
+  constructor(private readonly reflector: Reflector) {}
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const handlerGroups = this.reflector.get<string[]>(
+      SERIALIZATION_GROUP_KEY,
+      context.getHandler(),
+    );
+
+    console.log('Handler groups:', handlerGroups);
+    const classGroups = this.reflector.get<string[]>(
+      SERIALIZATION_GROUP_KEY,
+      context.getClass(),
+    );
+
+    console.log('Class groups:', classGroups);
+    const request = context.switchToHttp().getRequest<Request>();
+
+    let groups: string[] | undefined = this.getSerializationGroups(request);
+    if (!groups || groups.length === 0 || (groups.length === 1 && !groups[0])) {
+      groups = handlerGroups || classGroups || ['default'];
+    }
+
     return next.handle().pipe(
       map((data) => {
-        const request = context.switchToHttp().getRequest<Request>();
-        const groups = this.getSerializationGroups(request);
-
         return this.serialize(data, { groups });
       }),
     );
   }
 
-  private getSerializationGroups(request: Request): string[] {
-    // Récupérer les groupes depuis les headers, query params ou autres
+  private getSerializationGroups(request: Request): string[] | undefined {
     const groupsFromQuery = request.query.groups as string;
     const groupsFromHeader = request.headers['serialization-groups'] as string;
-
-    // Priorité aux headers, puis aux query params
     const groupsStr = groupsFromHeader || groupsFromQuery;
 
     if (!groupsStr) {
-      return ['default']; // Groupe par défaut
+      return undefined;
     }
-
     return groupsStr.split(',').map((g) => g.trim());
   }
-
   private serialize(data: any, options: ClassTransformOptions): any {
     if (!data) {
       return data;
     }
 
-    // Gérer les tableaux
+    console.log('Options class-transformer:', options);
+
     if (Array.isArray(data)) {
       return data.map((item) => this.serialize(item, options));
     }
 
-    // Gérer les objets paginés
     if (data.items && Array.isArray(data.items)) {
       return {
         ...data,
@@ -62,6 +76,8 @@ export class SerializerInterceptor implements NestInterceptor {
     }
 
     // Transformer l'objet en utilisant class-transformer
-    return classToPlain(data, options);
+    const result = classToPlain(data, options);
+
+    return result;
   }
 }

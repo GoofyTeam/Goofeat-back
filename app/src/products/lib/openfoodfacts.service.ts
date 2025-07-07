@@ -2,7 +2,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { APIResponse, OFF as OFFClass } from 'openfoodfacts-nodejs';
+import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
+import { Repository } from 'typeorm';
 import { ProductData, ProductDataService } from './product-data.interface';
 const OFF = require('openfoodfacts-nodejs');
 
@@ -11,7 +14,10 @@ export class OpenFoodFactsService implements ProductDataService {
   private readonly logger = new Logger(OpenFoodFactsService.name);
   private readonly client: OFFClass;
 
-  constructor() {
+  constructor(
+    @InjectRepository(Ingredient)
+    private readonly ingredientRepository: Repository<Ingredient>,
+  ) {
     this.client = new OFF() as OFFClass;
   }
 
@@ -58,17 +64,15 @@ export class OpenFoodFactsService implements ProductDataService {
       // Limiter le nombre de résultats
       const limitedProducts = brandResult.products.slice(0, limit);
 
-      // Mapper chaque produit vers notre format ProductData
-      return limitedProducts
-        .map((product) => {
-          // Vérifier que le produit est bien un objet valide
-          if (!product) {
-            this.logger.warn('Produit invalide dans les résultats');
-            return null;
-          }
-          return this.mapToProductData(product);
-        })
-        .filter((product): product is ProductData => product !== null);
+      // Mapper chaque produit vers notre format ProductData (async)
+      const mappedProducts = await Promise.all(
+        limitedProducts.map((product) =>
+          product ? this.mapToProductData(product) : null,
+        ),
+      );
+      return mappedProducts.filter(
+        (product): product is ProductData => product !== null,
+      );
     } catch (error: unknown) {
       this.logger.error(
         `Erreur lors de la recherche de produits avec le nom ${name}`,
@@ -82,19 +86,52 @@ export class OpenFoodFactsService implements ProductDataService {
    * Transforme les données d'OpenFoodFacts en format ProductData
    * @param openFoodFactsProduct Produit provenant de l'API OpenFoodFacts (peut être de type Product ou ProductsEntity)
    */
-  private mapToProductData(
+  /**
+   * Transforme les données d'OpenFoodFacts en format ProductData conforme à notre modèle
+   * - mappe le code-barres dans id ET code
+   * - tente de lier l'ingrédient par tag OFF ou nom (si service disponible)
+   */
+  private async mapToProductData(
     openFoodFactsProduct: APIResponse.ProductsEntity | APIResponse.Product,
-  ): ProductData {
+  ): Promise<ProductData> {
     // Assurons-nous que name est toujours défini comme une chaîne
     const name: string = openFoodFactsProduct.product_name || 'Nom inconnu';
+    const barcode: string =
+      openFoodFactsProduct.code || openFoodFactsProduct._id;
+
+    // Recherche de l'ingrédient correspondant (par offTag ou nom)
+    // Nécessite l'accès au repo Ingredient (injection à ajouter au service)
+    let ingredientId: string | undefined = undefined;
+    if (this.ingredientRepository) {
+      // Essayer de trouver par tag OFF
+      const offTag = openFoodFactsProduct.ingredients_tags?.[0];
+      let ingredient: Ingredient | null = null;
+      if (offTag) {
+        ingredient = await this.ingredientRepository.findOne({
+          where: { offTag },
+        });
+      }
+
+      // essayer par nom
+      if (!ingredient && name) {
+        ingredient = await this.ingredientRepository.findOne({
+          where: [{ nameFr: name }, { nameEn: name }, { name: name }],
+        });
+      }
+      if (ingredient) {
+        ingredientId = ingredient.id;
+      }
+    }
 
     return {
-      code: openFoodFactsProduct.code || openFoodFactsProduct._id,
-      name, // Maintenant name est garanti d'être une chaîne
+      id: barcode, // code-barres = clé primaire
+      code: barcode,
+      name,
       description: openFoodFactsProduct.ingredients_text || '',
       imageUrl:
         openFoodFactsProduct.image_url || openFoodFactsProduct.image_front_url,
       nutriments: openFoodFactsProduct.nutriments,
+      ingredientId,
       rawData: openFoodFactsProduct,
       // categories: openFoodFactsProduct.categories,
       // categories_tags: openFoodFactsProduct.categories_tags,

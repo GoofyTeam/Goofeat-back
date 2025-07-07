@@ -84,6 +84,29 @@ export class ProductController {
     return this.productService.findOne(id);
   }
 
+  @ApiOperation({
+    summary: 'Créer un produit depuis Open Food Facts par code-barres',
+  })
+  @ApiParam({
+    name: 'barcode',
+    description: 'Code-barres du produit',
+    example: '3017620422003',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Produit créé depuis OFF',
+    type: Product,
+  })
+  @SerializationGroups('product:barcode-min')
+  @Post('barcode/:barcode')
+  async createFromBarcode(
+    @Param('barcode') barcode: string,
+    @Query('groups') groups?: string,
+  ) {
+    const product = await this.productService.createFromBarcode(barcode);
+    return product;
+  }
+
   @ApiOperation({ summary: 'Mettre à jour un produit' })
   @ApiParam({
     name: 'id',

@@ -25,18 +25,30 @@ export class ProductService {
    * Crée un produit à partir des données récupérées via le code-barres
    * @param barcode Code-barres du produit à créer
    */
+  /**
+   * Recherche d'abord le produit en base, sinon création via Open Food Facts
+   */
   async createFromBarcode(barcode: string) {
+    // 1. Chercher le produit dans la BDD
+    const existing = await this.productRepository.findOne({
+      where: { id: barcode }, // id = code-barres
+    });
+    if (existing) {
+      return existing;
+    }
+    // 2. Sinon, récupérer les données via OFF puis créer
     try {
       const productData =
         await this.productDataService.getProductByBarcode(barcode);
-
       const product = this.productRepository.create(productData);
-
-      return this.productRepository.save(product);
+      const created = await this.productRepository.save(product);
+      return this.productRepository.findOne({
+        where: { id: created.id },
+        relations: ['ingredient'],
+      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : 'Erreur inconnue';
-
       throw new Error(
         `Impossible de créer le produit à partir du code-barres ${barcode}: ${errorMessage}`,
       );
