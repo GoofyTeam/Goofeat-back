@@ -48,9 +48,6 @@ export class SeederService {
     await this.productRepository.query(
       'TRUNCATE TABLE "products" RESTART IDENTITY CASCADE',
     );
-    await this.ingredientRepository.query(
-      'TRUNCATE TABLE "ingredients" RESTART IDENTITY CASCADE',
-    );
     await this.categoryRepository.query(
       'TRUNCATE TABLE "categories" RESTART IDENTITY CASCADE',
     );
@@ -61,13 +58,13 @@ export class SeederService {
     this.logger.log('Démarrage du processus de seeding complet...');
 
     // Étape 0: Nettoyer la base de données
-    await this.clearDatabase();
+    // await this.clearDatabase();
 
-    this.logger.log('Étape 1: Seeding des catégories...');
-    await this.categorySeedService.seed();
+    // this.logger.log('Étape 1: Seeding des catégories...');
+    // await this.categorySeedService.seed();
 
-    this.logger.log('Étape 2: Seeding des ingrédients génériques...');
-    await this.ingredientSeedService.seed();
+    // this.logger.log('Étape 2: Seeding des ingrédients génériques...');
+    // await this.ingredientSeedService.seed();
 
     this.logger.log('Étape 3: Seeding des produits...');
     await this.productSeedService.seed();

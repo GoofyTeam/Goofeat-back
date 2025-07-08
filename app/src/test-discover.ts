@@ -23,7 +23,7 @@ async function testDiscover() {
   console.log('--- Démarrage du script de test de découverte ---');
   // Lancement du seeding pour s'assurer que les données sont à jour
   console.log('--- Lancement du seeding complet... ---');
-  await seederService.seedAll();
+  // await seederService.seedAll();
   console.log('--- Seeding terminé ---');
 
   // Attendre que les événements d'indexation se propagent

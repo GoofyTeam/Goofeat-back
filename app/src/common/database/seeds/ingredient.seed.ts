@@ -84,9 +84,20 @@ export class IngredientSeedService {
         continue;
       }
 
+      // Génère un offTag unique basé sur le nom
+      // const offTag =
+      //   ingDef.offTag ||
+      //   ingDef.name
+      //     .toLowerCase()
+      //     .normalize('NFD')
+      //     .replace(/[\u0300-\u036f]/g, '') // supprime accents
+      //     .replace(/\s+/g, '-') // espaces → tirets
+      //     .replace(/[^a-z0-9\-]/g, ''); // caractères spéciaux
+
       const ingredient = this.ingredientRepository.create({
         name: ingDef.name,
         categoryId: category.id,
+        // offTag,≠ // champ obligatoire !
       });
 
       const savedIngredient = await this.ingredientRepository.save(ingredient);
