@@ -1,0 +1,6 @@
+npm --prefix app run lint
+RESULT=$?
+if [ $RESULT -ne 0 ]; then
+  echo "\033[0;31mESLint a détecté des erreurs. Commit annulé.\033[0m"
+  exit 1
+fi

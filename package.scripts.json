@@ -1,0 +1,7 @@
+{
+  "prepare": "husky",
+  "lint": "npx eslint app --ext .ts,.js",
+  "format": "npx prettier --write 'app/**/*.{ts,js,json,md}'",
+  "test": "echo 'Configure your test runner here'",
+  "type-check": "npx tsc --noEmit --project app/tsconfig.json"
+}
