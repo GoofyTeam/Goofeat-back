@@ -15,7 +15,7 @@ async function bootstrap() {
   // 1. Lancer le seeder pour (ré)indexer les données
   console.log('\n--- Lancement du seeder ---');
   const seederService = app.get(SeederService);
-  await seederService.seedAll();
+  // await seederService.seedAll();
   console.log('--- Seeder terminé ---');
 
   // 2. Préparer les données de recherche

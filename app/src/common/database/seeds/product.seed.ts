@@ -23,11 +23,7 @@ export class ProductSeedService {
       );
     }
 
-    const ingredientMap: Record<string, Ingredient> = {};
-    ingredients.forEach((ing) => {
-      ingredientMap[ing.name] = ing;
-    });
-
+    // Les ingrédients doivent venir d'OpenFoodFacts, on mappe par offTag
     const productDefinitions = [
       {
         name: 'Pâtes Penne Rigate Barilla',
@@ -35,7 +31,7 @@ export class ProductSeedService {
         description: 'Pâtes de semoule de blé dur',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/807/680/951/3722/front_fr.465.400.jpg',
-        ingredientName: 'Pâtes',
+        ingredientOffTag: 'en:durum-wheat-semolina', // à ajuster
       },
       {
         name: 'Thon au naturel Petit Navire',
@@ -43,7 +39,7 @@ export class ProductSeedService {
         description: 'Thon albacore au naturel, pêche responsable',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/356/007/039/4173/front_fr.25.400.jpg',
-        ingredientName: 'Thon au naturel',
+        ingredientOffTag: 'en:yellowfin-tuna', // à ajuster
       },
       {
         name: "Huile d'olive vierge extra Puget",
@@ -52,7 +48,7 @@ export class ProductSeedService {
           "Huile d'olive de catégorie supérieure obtenue directement des olives",
         imageUrl:
           'https://images.openfoodfacts.org/images/products/303/294/000/0019/front_fr.102.400.jpg',
-        ingredientName: "Huile d'olive vierge extra",
+        ingredientOffTag: 'en:olive-oil', // à ajuster
       },
       {
         name: 'Tomates pelées en jus Mutti',
@@ -60,7 +56,7 @@ export class ProductSeedService {
         description: 'Tomates 100% italiennes',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/800/511/013/0048/front_fr.66.400.jpg',
-        ingredientName: 'Tomate',
+        ingredientOffTag: 'en:tomato',
       },
       {
         name: 'Oignon Jaune',
@@ -68,7 +64,7 @@ export class ProductSeedService {
         description: 'Oignon jaune de calibre moyen',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/327/655/932/2237/front_fr.3.400.jpg',
-        ingredientName: 'Oignon jaune',
+        ingredientOffTag: 'en:onion',
       },
       {
         name: 'Ail',
@@ -76,7 +72,7 @@ export class ProductSeedService {
         description: 'Ail blanc',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/200/000/000/1034/front_fr.3.400.jpg',
-        ingredientName: 'Ail',
+        ingredientOffTag: 'en:garlic',
       },
       {
         name: 'Lardons fumés Herta',
@@ -84,7 +80,7 @@ export class ProductSeedService {
         description: 'Lardons fumés de qualité supérieure',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/301/136/000/5285/front_fr.55.400.jpg',
-        ingredientName: 'Lardons',
+        ingredientOffTag: 'en:lardon', // à ajuster
       },
       {
         name: 'Oeufs frais de poules élevées en plein air',
@@ -92,7 +88,7 @@ export class ProductSeedService {
         description: 'Boîte de 6 oeufs frais, catégorie A',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/324/541/238/3726/front_fr.110.400.jpg',
-        ingredientName: 'Oeuf',
+        ingredientOffTag: 'en:egg',
       },
       {
         name: 'Parmigiano Reggiano Giovanni Ferrari',
@@ -100,7 +96,7 @@ export class ProductSeedService {
         description: 'Fromage à pâte dure, affinage 22 mois',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/800/272/000/0000/front_it.12.400.jpg',
-        ingredientName: 'Parmesan',
+        ingredientOffTag: 'en:parmigiano-reggiano', // à ajuster
       },
     ];
 
@@ -108,23 +104,20 @@ export class ProductSeedService {
     this.logger.log('Début de la création des produits...');
 
     for (const productDef of productDefinitions) {
-      const { ingredientName, ...productData } = productDef;
-
-      const ingredient = ingredientMap[ingredientName];
+      const { ingredientOffTag, ...productData } = productDef;
+      const ingredient = ingredients.find((i) => i.offTag === ingredientOffTag);
       if (!ingredient) {
         this.logger.warn(
-          `Ingrédient générique "${ingredientName}" non trouvé pour le produit "${productData.name}". Le produit est ignoré.`,
+          `Ingrédient OFF "${ingredientOffTag}" non trouvé pour le produit "${productData.name}". Le produit est ignoré.`,
         );
         continue;
       }
-
       const product = this.productRepository.create({
         ...productData,
         id: productData.barcode,
         code: productData.barcode,
         ingredientId: ingredient.id,
       });
-
       const savedProduct = await this.productRepository.save(product);
       createdProducts.push(savedProduct);
     }

@@ -11,10 +11,12 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 // import { Category } from '../../../categories/category/entities/category.entity';
 
+@Unique(['code'])
 @Entity('products')
 export class Product {
   @Expose({

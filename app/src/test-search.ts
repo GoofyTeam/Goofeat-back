@@ -23,33 +23,34 @@ async function testSearch() {
   console.log('--- Démarrage du script de test de recherche ---');
 
   // Lancement du seeding pour s'assurer que les données sont à jour
-  console.log('--- Lancement du seeding complet... ---');
-  await seederService.seedAll();
-  console.log('--- Seeding terminé ---');
+  // console.log('--- Lancement du seeding complet... ---');
+  // await seederService.seedAll();
+  // console.log('--- Seeding terminé ---');
 
   // Attendre que les événements d'indexation se propagent
-  console.log("--- Attente de 2 secondes pour l'indexation... ---");
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  // console.log("--- Attente de 2 secondes pour l'indexation... ---");
+  // await new Promise((resolve) => setTimeout(resolve, 2000));
 
   try {
     // 1. Créer un stock utilisateur fictif
     console.log('Récupération des ingrédients pour le stock fictif...');
-    const ingredientNames = [
-      'Pâtes',
-      'Lardons',
-      'Oeuf',
-      'Parmesan',
-      'Tomate',
-      'Oignon jaune',
+    // Utiliser les offTags OFF pour la recherche
+    const ingredientOffTags = [
+      'en:durum-wheat-semolina', // Pâtes
+      'en:lardon', // Lardon
+      'en:egg', // Oeuf
+      'en:parmigiano-reggiano', // Parmesan
+      'en:tomato', // Tomate
+      'en:onion', // Oignon jaune
     ];
     const ingredients = await ingredientRepository.find({
-      where: { name: In(ingredientNames) },
+      where: { offTag: In(ingredientOffTags) },
       relations: ['products'],
     });
 
-    if (ingredients.length < ingredientNames.length) {
+    if (ingredients.length < ingredientOffTags.length) {
       console.warn(
-        "Certains ingrédients n'ont pas pu être trouvés. Le stock sera partiel.",
+        "Certains ingrédients n'ont pas pu être trouvés par offTag. Le stock sera partiel.",
       );
     }
 
