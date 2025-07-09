@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { NestFactory } from '@nestjs/core';
 import axios from 'axios';
 import { DataSource } from 'typeorm';
@@ -9,13 +8,28 @@ import { Ingredient } from './ingredients/entities/ingredient.entity';
 const TAXONOMY_URL =
   'https://world.openfoodfacts.org/data/taxonomies/ingredients.json';
 
+interface OffIngredientData {
+  name?: {
+    fr?: string;
+    en?: string;
+  };
+  wikidata?: {
+    en?: string;
+  };
+  parents?: string[];
+}
+
+interface OffTaxonomy {
+  [offTag: string]: OffIngredientData;
+}
+
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const dataSource = app.get(DataSource);
   const repo = dataSource.getRepository(Ingredient);
 
   console.log('Téléchargement de la taxonomie OFF...');
-  const response = await axios.get(TAXONOMY_URL);
+  const response = await axios.get<OffTaxonomy>(TAXONOMY_URL);
   const data = response.data;
   const seen = new Set<string>();
   let count = 0;
@@ -28,13 +42,12 @@ async function bootstrap() {
       continue;
     }
     seen.add(cleanedOffTag);
-    const ingredientData = ingredientDataRaw as any;
     const nameFr =
-      ingredientData.name?.fr || ingredientData.name?.en || cleanedOffTag;
+      ingredientDataRaw.name?.fr || ingredientDataRaw.name?.en || cleanedOffTag;
     const nameEn =
-      ingredientData.name?.en || ingredientData.name?.fr || cleanedOffTag;
-    const wikidata = ingredientData.wikidata?.en || undefined;
-    const parentOffTags = ingredientData.parents || undefined;
+      ingredientDataRaw.name?.en || ingredientDataRaw.name?.fr || cleanedOffTag;
+    const wikidata = ingredientDataRaw.wikidata?.en || undefined;
+    const parentOffTags = ingredientDataRaw.parents || undefined;
     const ingredient = repo.create({
       offTag: cleanedOffTag,
       nameFr,

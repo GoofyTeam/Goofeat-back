@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Product } from 'src/products/entities/product.entity';
@@ -41,9 +42,9 @@ describe('Product E2E - OpenFoodFacts import & ingredient link', () => {
     // Code-barres d\'un produit Nutella (contenant des noisettes)
     const barcode = '3038350023605';
     const res = await request(app.getHttpServer())
-      .post('/product/barcode/' + barcode)
+      .get('/product/barcode/' + barcode)
       .send()
-      .expect(201);
+      .expect(200);
     const body: Product = res.body as Product;
 
     expect(body).toHaveProperty('id', barcode);
