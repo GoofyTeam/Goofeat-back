@@ -98,7 +98,7 @@ export class ProductController {
     type: Product,
   })
   @SerializationGroups('product:barcode-min')
-  @Post('barcode/:barcode')
+  @Get('barcode/:barcode')
   async createFromBarcode(
     @Param('barcode') barcode: string,
     @Query('groups') groups?: string,

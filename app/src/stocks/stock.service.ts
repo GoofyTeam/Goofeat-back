@@ -28,9 +28,6 @@ export class StockService {
     }
 
     if (!createStockDto.dlc) {
-      // Convertir l'intervalle PostgreSQL en durée pour date-fns
-      // Exemple simple: si defaultDlcTime est '30 days', on ajoute 30 jours
-      // Gestion sécurisée de la correspondance regex qui peut retourner null
       const matches = product.defaultDlcTime.match(/\d+/);
       const defaultDlcDays = parseInt(matches ? matches[0] : '30');
 

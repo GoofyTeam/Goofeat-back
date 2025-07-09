@@ -33,13 +33,13 @@ export class ElasticsearchService implements OnModuleInit {
   }
 
   async createRecipeIndex() {
-    const indexExists = await this.client.indices.exists({ index: 'recipes' });
-    if (indexExists) {
-      await this.client.indices.delete({ index: 'recipes' });
-    }
-    this.logger.log('Creating index recipes...');
+    await this.client.indices.delete({
+      index: this.recipesIndex,
+    });
+
+    this.logger.log(`Creating index ${this.recipesIndex}...`);
     await this.client.indices.create({
-      index: 'recipes',
+      index: this.recipesIndex,
       body: {
         mappings: {
           properties: {

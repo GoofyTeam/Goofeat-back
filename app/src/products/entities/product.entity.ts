@@ -56,7 +56,9 @@ export class Product {
   @Column({ type: 'varchar' })
   description: string;
 
-  @Expose({ groups: ['default', 'product:read', 'product:list'] })
+  @Expose({
+    groups: ['default', 'product:read', 'product:list', 'product:barcode-min'],
+  })
   @ApiProperty({
     description: "URL de l'image du produit",
     example:
