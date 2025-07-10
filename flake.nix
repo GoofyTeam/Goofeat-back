@@ -1,5 +1,5 @@
 {
-  description = "Terraform development environment";
+  description = "Development environment with Terraform and Yarn";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
@@ -15,7 +15,7 @@
         };
       in {
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pkgs.terraform ];
+          buildInputs = [ pkgs.terraform pkgs.yarn ];
 
           shellHook = ''
             echo "Terraform environment ready"

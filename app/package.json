@@ -43,7 +43,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/typeorm": "^11.0.0",
-    "@openfoodfacts/openfoodfacts-nodejs": "git+https://github.com/openfoodfacts/openfoodfacts-nodejs.git",
+    "@openfoodfacts/openfoodfacts-nodejs": "https://github.com/openfoodfacts/openfoodfacts-nodejs.git",
     "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/passport": "^1.0.17",
