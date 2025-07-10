@@ -4,19 +4,19 @@ FROM public.ecr.aws/docker/library/node:22-slim
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY app/package.json app/pnpm-lock.yaml ./
+# Copy dependency files
+COPY app/package.json app/yarn.lock ./
 
-# Install dependencies using pnpm (preinstalled in your project)
-RUN npm install -g pnpm && pnpm install
+# Install dependencies
+RUN yarn install --frozen-lockfile
 
-# Copy the rest of the NestJS app
+# Copy the rest of the app source
 COPY app .
 
-# Build the NestJS app
-RUN pnpm build
+# Build the app (assumes build script is defined in package.json)
+RUN yarn build
 
-# Expose NestJS port (default is 3000)
+# Expose the default NestJS port
 EXPOSE 3000
 
 # Start the app
