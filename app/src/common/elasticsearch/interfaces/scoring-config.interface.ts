@@ -9,15 +9,7 @@ export interface ScoringWeights {
   preferredCategoryWeight?: number; // Poids pour les catégories préférées (optionnel)
 }
 
-/**
- * Interface pour les préférences utilisateur influençant le scoring
- */
-export interface UserPreferences {
-  allergenes?: string[];
-  preferredCategories?: string[];
-  excludedCategories?: string[];
-  dietaryRestrictions?: string[]; // Restrictions alimentaires (vegan, sans gluten, etc.)
-}
+import { UserPreferences } from 'src/users/interfaces/user-preferences.interface';
 
 /**
  * Configuration complète pour le système de scoring
