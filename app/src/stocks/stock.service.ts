@@ -1,7 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { add } from 'date-fns';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { Product } from 'src/products/entities/product.entity';
+import { Role } from 'src/users/enums/role.enum';
+import { User } from 'src/users/entity/user.entity';
 import { Repository } from 'typeorm';
 import { CreateStockDto } from './dto/create-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
@@ -16,7 +23,7 @@ export class StockService {
     private productRepository: Repository<Product>,
   ) {}
 
-  async create(createStockDto: CreateStockDto) {
+  async create(createStockDto: CreateStockDto, user: User): Promise<Stock> {
     const product = await this.productRepository.findOne({
       where: { id: createStockDto.productId },
     });
@@ -34,23 +41,62 @@ export class StockService {
       createStockDto.dlc = add(new Date(), { days: defaultDlcDays });
     }
 
-    const stock = this.stockRepository.create(createStockDto);
+    const stock = this.stockRepository.create({ ...createStockDto, user });
     return this.stockRepository.save(stock);
   }
 
-  findAll() {
-    return `This action returns all stock`;
+  async findAll(
+    user: User,
+    paginationDto: PaginationDto,
+  ): Promise<{ data: Stock[]; total: number; page: number; limit: number }> {
+    const { page, limit } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.stockRepository.findAndCount({
+      where: { user: { id: user.id } },
+      relations: ['product', 'category'],
+      take: limit,
+      skip: skip,
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+
+    return { data, total, page, limit };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} stock`;
+  async findOne(id: string, currentUser: User): Promise<Stock> {
+    const stock = await this.stockRepository.findOne({
+      where: { id },
+      relations: ['user'],
+    });
+    if (!stock) {
+      throw new NotFoundException(`Stock avec l'ID ${id} non trouvé`);
+    }
+
+    // An admin can access any stock, otherwise check ownership.
+    if (
+      !currentUser.roles.includes(Role.ADMIN) &&
+      stock.user.id !== currentUser.id
+    ) {
+      throw new ForbiddenException("Vous n'avez pas accès à cette ressource");
+    }
+    return stock;
   }
 
-  update(id: number, updateStockDto: UpdateStockDto) {
-    return `This action updates a #${id} stock ${updateStockDto.categoryId}`;
+  async update(
+    id: string,
+    updateStockDto: UpdateStockDto,
+    currentUser: User,
+  ): Promise<Stock> {
+    const stock = await this.findOne(id, currentUser); // findOne now handles admin checks
+    const updatedStock = this.stockRepository.merge(stock, updateStockDto);
+    return this.stockRepository.save(updatedStock);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} stock`;
+  async remove(id: string, currentUser: User): Promise<void> {
+    // findOne now handles admin checks
+    await this.findOne(id, currentUser);
+    await this.stockRepository.delete(id);
   }
 }

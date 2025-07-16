@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entity/user.entity';
+import { Role } from './enums/role.enum';
 
 @Injectable()
 export class UsersService {
@@ -29,10 +34,26 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.findOne(id);
-    Object.assign(user, updateUserDto);
-    return this.usersRepository.save(user);
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    currentUser: User,
+  ): Promise<User> {
+    const userToUpdate = await this.findOne(id);
+
+    // An admin can update anyone.
+    // A regular user can only update their own profile.
+    if (
+      !currentUser.roles.includes(Role.ADMIN) &&
+      currentUser.id !== userToUpdate.id
+    ) {
+      throw new ForbiddenException(
+        "Vous n'avez pas les droits pour modifier cet utilisateur.",
+      );
+    }
+
+    Object.assign(userToUpdate, updateUserDto);
+    return this.usersRepository.save(userToUpdate);
   }
 
   async remove(id: string): Promise<void> {

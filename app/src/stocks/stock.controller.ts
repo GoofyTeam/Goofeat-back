@@ -6,7 +6,10 @@ import {
   Param,
   Patch,
   Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import {
   ApiBody,
   ApiOperation,
@@ -14,6 +17,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { User } from 'src/users/entity/user.entity';
 import { CreateStockDto } from './dto/create-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { Stock } from './entities/stock.entity';
@@ -21,6 +27,7 @@ import { StockService } from './stock.service';
 
 @ApiTags('stocks')
 @Controller('stock')
+@UseGuards(AuthGuard('jwt'))
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
@@ -33,8 +40,8 @@ export class StockController {
   })
   @ApiResponse({ status: 400, description: 'Requête invalide' })
   @Post()
-  create(@Body() createStockDto: CreateStockDto) {
-    return this.stockService.create(createStockDto);
+  create(@Body() createStockDto: CreateStockDto, @CurrentUser() user: User) {
+    return this.stockService.create(createStockDto, user);
   }
 
   @ApiOperation({ summary: 'Récupérer tous les stocks' })
@@ -44,8 +51,8 @@ export class StockController {
     type: [Stock],
   })
   @Get()
-  findAll() {
-    return this.stockService.findAll();
+  findAll(@CurrentUser() user: User, @Query() paginationDto: PaginationDto) {
+    return this.stockService.findAll(user, paginationDto);
   }
 
   @ApiOperation({ summary: 'Récupérer un stock par son ID' })
@@ -61,8 +68,8 @@ export class StockController {
   })
   @ApiResponse({ status: 404, description: 'Stock non trouvé' })
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.stockService.findOne(+id);
+  findOne(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.stockService.findOne(id, user);
   }
 
   @ApiOperation({ summary: 'Mettre à jour un stock' })
@@ -79,8 +86,12 @@ export class StockController {
   })
   @ApiResponse({ status: 404, description: 'Stock non trouvé' })
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateStockDto: UpdateStockDto) {
-    return this.stockService.update(+id, updateStockDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateStockDto: UpdateStockDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.stockService.update(id, updateStockDto, user);
   }
 
   @ApiOperation({ summary: 'Supprimer un stock' })
@@ -92,7 +103,7 @@ export class StockController {
   @ApiResponse({ status: 200, description: 'Stock supprimé avec succès' })
   @ApiResponse({ status: 404, description: 'Stock non trouvé' })
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.stockService.remove(+id);
+  remove(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.stockService.remove(id, user);
   }
 }
