@@ -1,16 +1,17 @@
 import { SearchRequest } from '@elastic/elasticsearch/lib/api/types';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ElasticsearchService as NestElasticsearchService } from '@nestjs/elasticsearch';
 import { UnitConversionService } from 'src/common/units/unit-conversion.service';
 import { Recipe } from 'src/recipes/entities/recipe.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
+import { UserPreferences } from 'src/users/interfaces/user-preferences.interface';
 import {
   RecipeSearchResult,
   RecipeSource,
   RecipeTemp,
   ScoredRecipe,
 } from './interfaces/recipe-search.interface';
-import { UserPreferences } from './interfaces/scoring-config.interface';
 
 interface StockInfo {
   normalizedQuantity: number;
@@ -21,53 +22,73 @@ interface StockInfo {
 @Injectable()
 export class ElasticsearchService implements OnModuleInit {
   private readonly logger = new Logger(ElasticsearchService.name);
-  private readonly recipesIndex = 'recipes';
+  private readonly recipesIndex: string;
 
   constructor(
     private readonly client: NestElasticsearchService,
     private readonly unitConversionService: UnitConversionService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.recipesIndex = this.configService.get<string>(
+      'ELASTICSEARCH_RECIPE_INDEX',
+      'recipes',
+    );
+  }
 
   async onModuleInit() {
     await this.createRecipeIndex();
   }
 
   async createRecipeIndex() {
-    await this.client.indices.delete({
+    const indexExists = await this.client.indices.exists({
       index: this.recipesIndex,
     });
 
-    this.logger.log(`Creating index ${this.recipesIndex}...`);
-    await this.client.indices.create({
-      index: this.recipesIndex,
-      body: {
-        mappings: {
-          properties: {
-            id: { type: 'keyword' },
-            name: {
-              type: 'text',
-              analyzer: 'french',
-              fields: { keyword: { type: 'keyword', ignore_above: 256 } },
-            },
-            description: { type: 'text', analyzer: 'french' },
-            categories: { type: 'text', analyzer: 'french' },
-            ingredients_count: { type: 'integer' },
-            ingredients: {
-              type: 'nested',
-              properties: {
-                id: { type: 'keyword' },
-                name: { type: 'text', analyzer: 'french' },
-                quantity: { type: 'double' },
-                unit: { type: 'keyword' },
-                productId: { type: 'keyword' },
-                normalizedQuantity: { type: 'double' },
-                baseUnit: { type: 'keyword' },
+    if (indexExists) {
+      this.logger.log(`Index [${this.recipesIndex}] already exists.`);
+      return;
+    }
+
+    try {
+      this.logger.log(`Creating index [${this.recipesIndex}]...`);
+      await this.client.indices.create({
+        index: this.recipesIndex,
+        body: {
+          mappings: {
+            properties: {
+              id: { type: 'keyword' },
+              name: {
+                type: 'text',
+                analyzer: 'french',
+                fields: { keyword: { type: 'keyword', ignore_above: 256 } },
+              },
+              description: { type: 'text', analyzer: 'french' },
+              categories: { type: 'text', analyzer: 'french' },
+              ingredients_count: { type: 'integer' },
+              ingredients: {
+                type: 'nested',
+                properties: {
+                  id: { type: 'keyword' },
+                  name: { type: 'text', analyzer: 'french' },
+                  quantity: { type: 'double' },
+                  unit: { type: 'keyword' },
+                  productId: { type: 'keyword' },
+                  normalizedQuantity: { type: 'double' },
+                  baseUnit: { type: 'keyword' },
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+      this.logger.log(`Index [${this.recipesIndex}] created successfully.`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to create index [${this.recipesIndex}]:`,
+        error,
+      );
+      throw error;
+    }
   }
 
   private _transformRecipeForIndex(recipe: Recipe): RecipeTemp {
@@ -352,7 +373,7 @@ export class ElasticsearchService implements OnModuleInit {
                   params: { dlc: this.createDlcMap(stocks) },
                 },
               },
-              weight: 1.2,
+              weight: 2,
             },
             {
               filter: { match_all: {} },
