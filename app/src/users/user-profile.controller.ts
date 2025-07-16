@@ -95,7 +95,7 @@ export class UserProfileController {
       updateData.email = updateProfileDto.email;
     }
 
-    // Mise à jour des préférences (JSONB)
+    // Mise à jour des préférences
     if (updateProfileDto.preferences) {
       updateData.preferences = {
         ...(user.preferences || ({} as Record<string, unknown>)),
@@ -103,7 +103,7 @@ export class UserProfileController {
       };
     }
 
-    // Mise à jour des paramètres de notification (JSONB)
+    // Mise à jour des paramètres de notification
     if (updateProfileDto.notificationSettings) {
       updateData.notificationSettings = {
         ...(user.notificationSettings || ({} as Record<string, unknown>)),
@@ -111,7 +111,11 @@ export class UserProfileController {
       };
     }
 
-    const updatedUser = await this.usersService.update(userId, updateData);
+    const updatedUser = await this.usersService.update(
+      userId,
+      updateData,
+      currentUser,
+    );
 
     return {
       userId: updatedUser.id,

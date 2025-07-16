@@ -6,6 +6,7 @@ import {
   IsString,
   ValidateIf,
 } from 'class-validator';
+import { UserPreferences } from '../interfaces/user-preferences.interface';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -30,7 +31,7 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsObject()
-  preferences?: Record<string, unknown>;
+  preferences?: Partial<UserPreferences>;
 
   @IsOptional()
   @IsObject()
