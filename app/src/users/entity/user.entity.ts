@@ -7,6 +7,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Role } from '../enums/role.enum';
+import { UserPreferences } from '../interfaces/user-preferences.interface';
 
 @Entity('users')
 export class User {
@@ -52,7 +54,7 @@ export class User {
     default: () => "'{}'",
     array: false,
   })
-  preferences: Record<string, unknown>;
+  preferences: UserPreferences;
 
   @Column({
     type: 'jsonb',
@@ -61,4 +63,11 @@ export class User {
     array: false,
   })
   notificationSettings: Record<string, unknown>;
+
+  @Column({
+    type: 'simple-array',
+    enum: Role,
+    default: [Role.USER],
+  })
+  roles: Role[];
 }
