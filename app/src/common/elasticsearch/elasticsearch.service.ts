@@ -168,6 +168,83 @@ export class ElasticsearchService implements OnModuleInit {
     return dlcMap;
   }
 
+  async findMakeableRecipes(
+    preferences: UserPreferences,
+    stocks: Stock[],
+  ): Promise<RecipeSearchResult> {
+    const stocksMap = this.createStocksMap(stocks);
+    const dlcMap = this.createDlcMap(stocks);
+
+    const searchRequest: SearchRequest = {
+      index: this.recipesIndex,
+      query: {
+        function_score: {
+          query: {
+            bool: {
+              must: [
+                {
+                  script: {
+                    script: {
+                      lang: 'painless',
+                      source: `
+                        if (params._source.ingredients == null || params._source.ingredients.isEmpty()) {
+                          return true;
+                        }
+                        for (def ingredient : params._source.ingredients) {
+                          if (ingredient.productId == null || !params.stocks.containsKey(ingredient.productId)) {
+                            return false;
+                          }
+                          def stock = params.stocks[ingredient.productId];
+                          if (stock.baseUnit != ingredient.baseUnit || stock.normalizedQuantity < ingredient.normalizedQuantity) {
+                            return false;
+                          }
+                        }
+                        return true;
+                      `,
+                      params: { stocks: stocksMap },
+                    },
+                  },
+                },
+              ],
+              should: (preferences.preferredCategories || []).map(
+                (category) => ({
+                  match: {
+                    categories: {
+                      query: category,
+                      boost: 2,
+                    },
+                  },
+                }),
+              ),
+              minimum_should_match: 0,
+            },
+          },
+          functions: [this._buildDlcScoreFunction(dlcMap)],
+          score_mode: 'sum',
+          boost_mode: 'multiply',
+        },
+      },
+    };
+
+    const result = await this.client.search<RecipeSource>(searchRequest);
+
+    const recipes: ScoredRecipe[] = result.hits.hits
+      .filter((hit) => hit._id && hit._source)
+      .map((hit) => ({
+        ...(hit._source as RecipeTemp),
+        id: hit._id!,
+        score: hit._score || 0,
+      }));
+
+    return {
+      total:
+        typeof result.hits.total === 'number'
+          ? result.hits.total
+          : (result.hits.total?.value ?? 0),
+      results: recipes,
+    };
+  }
+
   async discoverRecipes(
     preferences: UserPreferences,
     stocks: Stock[],
@@ -185,7 +262,12 @@ export class ElasticsearchService implements OnModuleInit {
           query: {
             bool: {
               must: {
-                match_all: {},
+                bool: {
+                  should: stocks.map((stock) => ({
+                    term: { 'ingredients.productId': stock.product.id },
+                  })),
+                  minimum_should_match: 1,
+                },
               },
               should: (preferences.preferredCategories || []).map(
                 (category) => ({
@@ -201,66 +283,8 @@ export class ElasticsearchService implements OnModuleInit {
             },
           },
           functions: [
-            {
-              filter: { match_all: {} },
-              script_score: {
-                script: {
-                  source: `
-                      double dlcScore = 0;
-                      if (params.dlc == null || params.dlc.isEmpty()) {
-                        return 0;
-                      }
-                      long today = new Date().getTime();
-                      int dlcCount = 0;
-                      for (def ingredient : params._source.ingredients) {
-                        if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
-                                                    long dlcDate = java.time.ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
-                          long diff = dlcDate - today;
-                          if (diff > 0) {
-                            double days = diff / (1000.0 * 60 * 60 * 24);
-                            dlcScore += 1.0 / (1.0 + days); 
-                          } else {
-                            dlcScore -= 1.0; 
-                          }
-                          dlcCount++;
-                        }
-                      }
-                      return dlcCount > 0 ? dlcScore / dlcCount : 0;
-                    `,
-                  params: { dlc: dlcMap },
-                },
-              },
-              weight: 5,
-            },
-            {
-              filter: { match_all: {} },
-              script_score: {
-                script: {
-                  source: `
-                      double availabilityScore = 0;
-                      if (params._source.ingredients == null || params._source.ingredients.isEmpty()) {
-                        return 1.0; // No ingredients required, perfect availability
-                      }
-                      int totalIngredients = params._source.ingredients.size();
-                      int availableIngredients = 0;
-                      for (def ingredient : params._source.ingredients) {
-                        if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
-                           def stock = params.stocks[ingredient.productId];
-                           if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
-                             availableIngredients++;
-                           }
-                        }
-                      }
-                      if (totalIngredients > 0) {
-                        availabilityScore = (float)availableIngredients / totalIngredients;
-                      }
-                      return availabilityScore;
-                    `,
-                  params: { stocks: stocksMap },
-                },
-              },
-              weight: 1.5,
-            },
+            this._buildDlcScoreFunction(dlcMap),
+            this._buildAvailabilityScoreFunction(stocksMap),
           ],
           score_mode: 'sum',
           boost_mode: 'multiply',
@@ -434,6 +458,72 @@ export class ElasticsearchService implements OnModuleInit {
           ? result.hits.total
           : (result.hits.total?.value ?? 0),
       results: recipes,
+    };
+  }
+
+  private _buildDlcScoreFunction(dlcMap: Record<string, string>) {
+    return {
+      filter: { match_all: {} },
+      script_score: {
+        script: {
+          source: `
+            double dlcScore = 0;
+            if (params.dlc == null || params.dlc.isEmpty()) { return 0; }
+            long today = new Date().getTime();
+            int dlcCount = 0;
+            for (def ingredient : params._source.ingredients) {
+              if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
+                long dlcDate = java.time.ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
+                long diff = dlcDate - today;
+                if (diff > 0) {
+                  double days = diff / (1000.0 * 60 * 60 * 24);
+                  dlcScore += 1.0 / (1.0 + days);
+                } else {
+                  dlcScore -= 1.0;
+                }
+                dlcCount++;
+              }
+            }
+            return dlcCount > 0 ? dlcScore / dlcCount : 0;
+          `,
+          params: { dlc: dlcMap },
+        },
+      },
+      weight: 5,
+    };
+  }
+
+  private _buildAvailabilityScoreFunction(
+    stocksMap: Record<string, StockInfo>,
+  ) {
+    return {
+      filter: { match_all: {} },
+      script_score: {
+        script: {
+          source: `
+            double availabilityScore = 0;
+            if (params._source.ingredients == null || params._source.ingredients.isEmpty()) {
+              return 1.0; // No ingredients required, perfect availability
+            }
+            int totalIngredients = params._source.ingredients.size();
+            int availableIngredients = 0;
+            for (def ingredient : params._source.ingredients) {
+              if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
+                 def stock = params.stocks[ingredient.productId];
+                 if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
+                   availableIngredients++;
+                 }
+              }
+            }
+            if (totalIngredients > 0) {
+              availabilityScore = (float)availableIngredients / totalIngredients;
+            }
+            return availabilityScore;
+          `,
+          params: { stocks: stocksMap },
+        },
+      },
+      weight: 1.5,
     };
   }
 }

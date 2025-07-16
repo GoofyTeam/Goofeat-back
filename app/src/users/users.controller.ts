@@ -4,17 +4,17 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
-  Put,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entity/user.entity';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { Role } from './enums/role.enum';
 import { UsersService } from './users.service';
 
@@ -39,7 +39,8 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
-  @Put(':id')
+  @Patch(':id')
+  @Roles(Role.ADMIN)
   update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,

@@ -24,8 +24,8 @@ import { Paginated, PaginateQuery } from 'nestjs-paginate';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { ElasticsearchService } from 'src/common/elasticsearch/elasticsearch.service';
 import { RecipeSearchResult } from 'src/common/elasticsearch/interfaces/recipe-search.interface';
-import { UserPreferences } from 'src/common/elasticsearch/interfaces/scoring-config.interface';
 import { User } from 'src/users/entity/user.entity';
+import { UserPreferences } from 'src/users/interfaces/user-preferences.interface';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
 import { Recipe } from './entities/recipe.entity';
@@ -133,7 +133,7 @@ export class RecipeController {
           userPreferences = {};
         }
       } else {
-        userPreferences = user.preferences as UserPreferences;
+        userPreferences = user.preferences;
       }
     }
     // The query parameter is ignored for now, focusing on discovery
@@ -143,23 +143,26 @@ export class RecipeController {
     );
   }
 
-  /**
-   * Endpoint de réindexation (réservé aux administrateurs)
-   * À protéger avec un guard d'administration en production
-   */
-  @Get('/search/reindex')
-  @UseGuards(AuthGuard('jwt')) // À remplacer par un guard admin si besoin
+  @Get('/makeable')
+  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Réindexer toutes les recettes',
-    description:
-      'Force la réindexation de toutes les recettes (opération admin)',
+    summary:
+      'Trouver des recettes entièrement réalisables avec le stock actuel',
   })
-  reindexAll(): { success: boolean; message: string } {
-    // Ici, on suppose que toutes les recettes sont accessibles via le service
-    // et qu'elles sont bien indexées ensuite
-    // À adapter si besoin
-    // TODO: ajouter un vrai guard admin
-    return { success: true, message: 'Réindexation simulée.' };
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des recettes réalisables, ordonnées par pertinence',
+  })
+  async findMakeableRecipes(
+    @CurrentUser() user: User,
+  ): Promise<RecipeSearchResult> {
+    const userStocks = user.stocks || [];
+    const userPreferences = user.preferences || {};
+
+    return this.elasticsearchService.findMakeableRecipes(
+      userPreferences,
+      userStocks,
+    );
   }
 }
