@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import { Unit } from 'src/common/units/unit.enums';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import {
@@ -71,6 +71,8 @@ export class RecipeIngredient {
 
   @ManyToOne(() => Ingredient, { eager: true, nullable: false })
   @JoinColumn({ name: 'ingredientId' })
+  @Expose({ groups: ['recipe:read', 'recipe-ingredient:read'] })
+  @Type(() => Ingredient)
   ingredient: Ingredient;
 
   @CreateDateColumn()

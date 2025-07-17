@@ -12,6 +12,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entity/user.entity';
@@ -24,23 +25,27 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @SerializationGroups('user:read')
   create(@Body() createUserDto: CreateUserDto): Promise<User> {
     return this.usersService.create(createUserDto);
   }
 
   @Get()
   @Roles(Role.ADMIN)
+  @SerializationGroups('user:list')
   findAll(): Promise<User[]> {
     return this.usersService.findAll();
   }
 
   @Get(':id')
+  @SerializationGroups('user:read')
   findOne(@Param('id') id: string): Promise<User> {
     return this.usersService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN)
+  @SerializationGroups('user:read')
   update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,

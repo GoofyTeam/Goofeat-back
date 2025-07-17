@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Expose, Type } from 'class-transformer';
 import { Unit } from 'src/common/units/unit.enums';
 import { Product } from 'src/products/entities/product.entity';
 import { User } from 'src/users/entity/user.entity';
@@ -18,12 +19,17 @@ export class Stock {
     example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
   })
   @PrimaryGeneratedColumn('uuid')
+  @Expose({ groups: ['stock:list', 'stock:read'] })
   id: string;
 
   @ManyToOne(() => Product, (product) => product.stocks)
+  @Expose({ groups: ['stock:list', 'stock:read'] })
+  @Type(() => Product)
   product: Product;
 
   @ManyToOne(() => User, (user) => user.stocks)
+  @Expose({ groups: ['stock:read'] })
+  @Type(() => User)
   user: User;
 
   @ApiProperty({
@@ -32,6 +38,7 @@ export class Stock {
     minimum: 0,
   })
   @Column({ type: 'float' })
+  @Expose({ groups: ['stock:list', 'stock:read'] })
   quantity: number;
 
   @ApiProperty({
@@ -45,6 +52,7 @@ export class Stock {
     enum: Unit,
     nullable: true,
   })
+  @Expose({ groups: ['stock:list', 'stock:read'] })
   unit?: Unit;
 
   @ApiProperty({
@@ -52,6 +60,7 @@ export class Stock {
     example: '2025-12-31',
   })
   @Column({ type: 'date' })
+  @Expose({ groups: ['stock:list', 'stock:read'] })
   dlc: Date;
 
   @ApiProperty({
@@ -59,6 +68,7 @@ export class Stock {
     example: '2023-01-01T00:00:00Z',
   })
   @CreateDateColumn()
+  @Expose({ groups: ['stock:read'] })
   createdAt: Date;
 
   @ApiProperty({
@@ -66,5 +76,6 @@ export class Stock {
     example: '2023-01-01T00:00:00Z',
   })
   @UpdateDateColumn()
+  @Expose({ groups: ['stock:read'] })
   updatedAt: Date;
 }

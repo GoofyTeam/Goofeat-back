@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import {
   Column,
@@ -58,6 +58,7 @@ export class Category {
     nullable: true,
   })
   @JoinColumn({ name: 'parentId' })
+  @Type(() => Category)
   parent: Category;
 
   @Column({ type: 'uuid', nullable: true })
@@ -72,9 +73,12 @@ export class Category {
   @OneToMany(() => Category, (category) => category.parent, {
     cascade: true,
   })
+  @Type(() => Category)
   children: Category[];
 
   @OneToMany(() => Ingredient, (ingredient) => ingredient.category)
+  @Expose({ groups: ['category:read'] })
+  @Type(() => Ingredient)
   ingredients: Ingredient[];
 
   @Expose({ groups: ['category:read', 'admin'] })

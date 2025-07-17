@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import {
   Column,
   CreateDateColumn,
@@ -104,6 +104,7 @@ export class Recipe {
     cascade: true,
     eager: true,
   })
+  @Type(() => RecipeIngredient)
   ingredients: RecipeIngredient[];
 
   @Expose({ groups: ['recipe:read', 'admin'] })
