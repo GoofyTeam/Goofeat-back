@@ -10,7 +10,9 @@ async function bootstrap() {
   });
   app.enableVersioning({
     type: VersioningType.URI,
+    defaultVersion: '1',
   });
+  app.setGlobalPrefix('api');
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -27,10 +29,12 @@ async function bootstrap() {
     .setTitle('Goofeat API')
     .setDescription('API pour Goofeat')
     .setVersion('1.0')
+    .addBearerAuth()
+
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
 
-  SwaggerModule.setup('api', app, documentFactory);
+  SwaggerModule.setup('api/docs', app, documentFactory);
 
   const logger = app.get(LoggerService);
   app.useLogger(logger);

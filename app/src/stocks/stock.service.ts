@@ -5,12 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { add } from 'date-fns';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { Product } from 'src/products/entities/product.entity';
-import { Role } from 'src/users/enums/role.enum';
 import { User } from 'src/users/entity/user.entity';
-import { Repository } from 'typeorm';
+import { Role } from 'src/users/enums/role.enum';
+import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { CreateStockDto } from './dto/create-stock.dto';
+import { FilterStockDto } from './dto/filter-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { Stock } from './entities/stock.entity';
 
@@ -47,13 +47,19 @@ export class StockService {
 
   async findAll(
     user: User,
-    paginationDto: PaginationDto,
+    filterStockDto: FilterStockDto,
   ): Promise<{ data: Stock[]; total: number; page: number; limit: number }> {
-    const { page, limit } = paginationDto;
+    const { page, limit, search } = filterStockDto;
     const skip = (page - 1) * limit;
 
+    const where: FindOptionsWhere<Stock> = { user: { id: user.id } };
+
+    if (search) {
+      where.product = { name: ILike(`%${search}%`) };
+    }
+
     const [data, total] = await this.stockRepository.findAndCount({
-      where: { user: { id: user.id } },
+      where,
       relations: ['product', 'category'],
       take: limit,
       skip: skip,

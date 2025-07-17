@@ -2,10 +2,10 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SeederService } from './common/database/seeds/seeder.service';
 import { ElasticsearchService } from './common/elasticsearch/elasticsearch.service';
-import { UserPreferences } from './common/elasticsearch/interfaces/scoring-config.interface';
 import { Product } from './products/entities/product.entity';
 import { Stock } from './stocks/entities/stock.entity';
 import { User } from './users/entity/user.entity';
+import { UserPreferences } from './users/interfaces/user-preferences.interface';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
