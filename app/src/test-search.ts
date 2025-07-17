@@ -4,11 +4,12 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { AppModule } from 'src/app.module';
 import { SeederService } from 'src/common/database/seeds/seeder.service';
 import { ElasticsearchService } from 'src/common/elasticsearch/elasticsearch.service';
-import { UserPreferences } from 'src/common/elasticsearch/interfaces/scoring-config.interface';
+
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import { In, Repository } from 'typeorm';
 import { Unit } from './common/units/unit.enums';
+import { UserPreferences } from './users/interfaces/user-preferences.interface';
 
 async function testSearch() {
   const app = await NestFactory.create(AppModule, {

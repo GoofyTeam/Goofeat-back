@@ -18,10 +18,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
 import { User } from 'src/users/entity/user.entity';
 import { CreateStockDto } from './dto/create-stock.dto';
+import { FilterStockDto } from './dto/filter-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { Stock } from './entities/stock.entity';
 import { StockService } from './stock.service';
@@ -54,8 +54,8 @@ export class StockController {
   })
   @Get()
   @SerializationGroups('stock:list')
-  findAll(@CurrentUser() user: User, @Query() paginationDto: PaginationDto) {
-    return this.stockService.findAll(user, paginationDto);
+  findAll(@CurrentUser() user: User, @Query() filterStockDto: FilterStockDto) {
+    return this.stockService.findAll(user, filterStockDto);
   }
 
   @ApiOperation({ summary: 'Récupérer un stock par son ID' })
