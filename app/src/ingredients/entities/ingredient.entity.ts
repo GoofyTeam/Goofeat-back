@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import { Category } from 'src/categories/entities/category.entity';
 import { Product } from 'src/products/entities/product.entity';
 import {
@@ -20,6 +20,7 @@ export class Ingredient {
    */
   @ApiProperty({ description: 'Tag unique OFF', example: 'en:garlic-extract' })
   @Column({ type: 'varchar', unique: true, nullable: false })
+  @Expose({ groups: ['ingredient:read', 'product:barcode-min'] })
   offTag: string;
 
   /**
@@ -27,6 +28,7 @@ export class Ingredient {
    */
   @ApiProperty({ description: 'Nom français', example: "Extrait d'ail" })
   @Column({ type: 'varchar', nullable: false })
+  @Expose({ groups: ['ingredient:read'] })
   nameFr: string;
 
   /**
@@ -34,6 +36,7 @@ export class Ingredient {
    */
   @ApiProperty({ description: 'Nom anglais', example: 'Garlic extract' })
   @Column({ type: 'varchar', nullable: false })
+  @Expose({ groups: ['ingredient:read'] })
   nameEn: string;
 
   /**
@@ -58,7 +61,9 @@ export class Ingredient {
   @Column({ type: 'varchar', array: true, nullable: true })
   parentOffTags?: string[];
 
-  @Expose({ groups: ['default', 'ingredient:read'] })
+  @Expose({
+    groups: ['ingredient:list', 'ingredient:read', 'product:barcode-min'],
+  })
   @ApiProperty({
     description: "Identifiant unique de l'ingrédient",
     example: '550e8400-e29b-41d4-a716-446655440000',
@@ -66,7 +71,9 @@ export class Ingredient {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Expose({ groups: ['default', 'ingredient:read'] })
+  @Expose({
+    groups: ['ingredient:list', 'ingredient:read', 'product:barcode-min'],
+  })
   @ApiProperty({
     description: "Nom de l'ingrédient générique",
     example: 'Farine de blé',
@@ -88,14 +95,20 @@ export class Ingredient {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'categoryId' })
+  @Expose({ groups: ['ingredient:read'] })
+  @Type(() => Category)
   category?: Category;
 
   @OneToMany(() => Product, (product) => product.ingredient)
+  @Expose({ groups: ['ingredient:read'] })
+  @Type(() => Product)
   products: Product[];
 
   @CreateDateColumn()
+  @Expose({ groups: ['ingredient:read'] })
   createdAt: Date;
 
   @UpdateDateColumn()
+  @Expose({ groups: ['ingredient:read'] })
   updatedAt: Date;
 }

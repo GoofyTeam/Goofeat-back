@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
 import { User } from 'src/users/entity/user.entity';
 import { CreateStockDto } from './dto/create-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
@@ -40,6 +41,7 @@ export class StockController {
   })
   @ApiResponse({ status: 400, description: 'Requête invalide' })
   @Post()
+  @SerializationGroups('stock:read')
   create(@Body() createStockDto: CreateStockDto, @CurrentUser() user: User) {
     return this.stockService.create(createStockDto, user);
   }
@@ -51,6 +53,7 @@ export class StockController {
     type: [Stock],
   })
   @Get()
+  @SerializationGroups('stock:list')
   findAll(@CurrentUser() user: User, @Query() paginationDto: PaginationDto) {
     return this.stockService.findAll(user, paginationDto);
   }
@@ -68,6 +71,7 @@ export class StockController {
   })
   @ApiResponse({ status: 404, description: 'Stock non trouvé' })
   @Get(':id')
+  @SerializationGroups('stock:read')
   findOne(@Param('id') id: string, @CurrentUser() user: User) {
     return this.stockService.findOne(id, user);
   }
@@ -86,6 +90,7 @@ export class StockController {
   })
   @ApiResponse({ status: 404, description: 'Stock non trouvé' })
   @Patch(':id')
+  @SerializationGroups('stock:read')
   update(
     @Param('id') id: string,
     @Body() updateStockDto: UpdateStockDto,

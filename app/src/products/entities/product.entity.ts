@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import { Unit } from 'src/common/units/unit.enums';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
@@ -30,6 +30,8 @@ export class Product {
   id: string;
 
   @OneToMany(() => Stock, (stock) => stock.product)
+  @Expose({ groups: ['product:read'] })
+  @Type(() => Stock)
   stocks: Stock[];
 
   @Expose({
@@ -145,5 +147,6 @@ export class Product {
   })
   @JoinColumn({ name: 'ingredientId' })
   @Expose({ groups: ['product:read', 'product:barcode-min'] })
+  @Type(() => Ingredient)
   ingredient: Ingredient;
 }

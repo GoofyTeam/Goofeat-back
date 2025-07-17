@@ -13,7 +13,7 @@ import {
 } from 'class-validator';
 import { CreateRecipeIngredientDto } from './create-recipe-ingredient.dto';
 
-// Énumération pour les niveaux de difficulté
+// niveaux de difficulté
 export enum Difficulty {
   EASY = 'Facile',
   INTERMEDIATE = 'Intermédiaire',
@@ -21,7 +21,7 @@ export enum Difficulty {
   EXPERT = 'Expert',
 }
 
-// Énumération pour les scores nutritionnels
+// scores nutritionnels
 export enum NutriScore {
   A = 'A',
   B = 'B',

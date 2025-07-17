@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import * as bcrypt from 'bcrypt';
+import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { User } from './entity/user.entity';
@@ -24,21 +25,15 @@ export class UserProfileController {
 
   @Get('profile')
   @UseGuards(AuthGuard('jwt'))
+  @SerializationGroups('user:read')
   getProfile(@CurrentUser() user: User) {
-    return {
-      userId: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      preferences: user.preferences || {},
-      notificationSettings: user.notificationSettings || {},
-      profilePicture: user.profilePicture,
-    };
+    return user;
   }
 
   @Put('profile')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
+  @SerializationGroups('user:read')
   async updateProfile(
     @CurrentUser() currentUser: User,
     @Body() updateProfileDto: UpdateProfileDto,
@@ -111,20 +106,6 @@ export class UserProfileController {
       };
     }
 
-    const updatedUser = await this.usersService.update(
-      userId,
-      updateData,
-      currentUser,
-    );
-
-    return {
-      userId: updatedUser.id,
-      firstName: updatedUser.firstName,
-      lastName: updatedUser.lastName,
-      email: updatedUser.email,
-      preferences: updatedUser.preferences || {},
-      notificationSettings: updatedUser.notificationSettings || {},
-      profilePicture: updatedUser.profilePicture,
-    };
+    return this.usersService.update(userId, updateData, currentUser);
   }
 }

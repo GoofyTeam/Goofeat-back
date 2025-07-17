@@ -24,6 +24,7 @@ import { Paginated, PaginateQuery } from 'nestjs-paginate';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { ElasticsearchService } from 'src/common/elasticsearch/elasticsearch.service';
 import { RecipeSearchResult } from 'src/common/elasticsearch/interfaces/recipe-search.interface';
+import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
 import { User } from 'src/users/entity/user.entity';
 import { UserPreferences } from 'src/users/interfaces/user-preferences.interface';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -43,6 +44,7 @@ export class RecipeController {
   @Post()
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
+  @SerializationGroups('recipe:read')
   @ApiOperation({ summary: 'Créer une nouvelle recette' })
   @ApiResponse({
     status: 201,
@@ -55,6 +57,7 @@ export class RecipeController {
   }
 
   @Get()
+  @SerializationGroups('recipe:list')
   @ApiOperation({
     summary: 'Récupérer toutes les recettes avec pagination et filtres',
   })
@@ -73,6 +76,7 @@ export class RecipeController {
   }
 
   @Get(':id')
+  @SerializationGroups('recipe:read')
   @ApiOperation({ summary: 'Récupérer une recette par son ID' })
   @ApiResponse({ status: 200, description: 'Recette trouvée' })
   @ApiResponse({ status: 404, description: 'Recette non trouvée' })
@@ -83,6 +87,7 @@ export class RecipeController {
   @Put(':id')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
+  @SerializationGroups('recipe:read')
   @ApiOperation({ summary: 'Mettre à jour une recette' })
   @ApiResponse({ status: 200, description: 'Recette mise à jour avec succès' })
   @ApiResponse({ status: 404, description: 'Recette non trouvée' })
@@ -103,6 +108,7 @@ export class RecipeController {
   @Get('/search')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
+  @SerializationGroups('recipe:list')
   @ApiOperation({
     summary: 'Recherche de recettes avec scoring dynamique',
     description:
@@ -146,6 +152,7 @@ export class RecipeController {
   @Get('/makeable')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
+  @SerializationGroups('recipe:list')
   @ApiOperation({
     summary:
       'Trouver des recettes entièrement réalisables avec le stock actuel',

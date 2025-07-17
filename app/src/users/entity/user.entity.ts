@@ -1,3 +1,4 @@
+import { Expose } from 'class-transformer';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import {
   Column,
@@ -13,21 +14,26 @@ import { UserPreferences } from '../interfaces/user-preferences.interface';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
+  @Expose({ groups: ['user:list', 'user:read'] })
   id: string;
 
   @Column({ length: 100 })
+  @Expose({ groups: ['user:list', 'user:read'] })
   firstName: string;
 
   @Column({ length: 100 })
+  @Expose({ groups: ['user:list', 'user:read'] })
   lastName: string;
 
   @Column({ unique: true })
+  @Expose({ groups: ['user:read'] })
   email: string;
 
   @Column({ select: false, nullable: true })
   password: string;
 
   @Column({ default: true })
+  @Expose({ groups: ['user:read', 'user:admin'] })
   isActive: boolean;
 
   @Column({ nullable: true })
@@ -37,15 +43,19 @@ export class User {
   appleId: string;
 
   @Column({ nullable: true })
+  @Expose({ groups: ['user:list', 'user:read'] })
   profilePicture: string;
 
   @CreateDateColumn()
+  @Expose({ groups: ['user:read', 'user:admin'] })
   createdAt: Date;
 
   @UpdateDateColumn()
+  @Expose({ groups: ['user:read', 'user:admin'] })
   updatedAt: Date;
 
   @OneToMany(() => Stock, (stock) => stock.user)
+  @Expose({ groups: ['user:read'] })
   stocks: Stock[];
 
   @Column({
@@ -54,6 +64,7 @@ export class User {
     default: () => "'{}'",
     array: false,
   })
+  @Expose({ groups: ['user:read'] })
   preferences: UserPreferences;
 
   @Column({
@@ -62,6 +73,7 @@ export class User {
     default: () => "'{}'",
     array: false,
   })
+  @Expose({ groups: ['user:read'] })
   notificationSettings: Record<string, unknown>;
 
   @Column({
@@ -69,5 +81,6 @@ export class User {
     enum: Role,
     default: [Role.USER],
   })
+  @Expose({ groups: ['user:read', 'user:admin'] })
   roles: Role[];
 }

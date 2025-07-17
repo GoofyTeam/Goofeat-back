@@ -37,25 +37,16 @@ export class LoggerService implements NestLoggerService {
     return context ? `[${context}] ${message}` : message;
   }
 
-  /**
-   * Enregistre une requête HTTP entrante
-   */
   logRequest(req: any, context?: string): void {
     const message = `${req.method} ${req.url}`;
     this.log(message, context || 'HTTP Request');
   }
 
-  /**
-   * Enregistre une réponse HTTP sortante
-   */
   logResponse(req: any, res: any, context?: string): void {
     const message = `${req.method} ${req.url} ${res.statusCode}`;
     this.log(message, context || 'HTTP Response');
   }
 
-  /**
-   * Enregistre une opération de base de données
-   */
   logDatabase(
     operation: string,
     entity: string,

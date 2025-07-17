@@ -65,19 +65,6 @@ GET /products?groups=product:list,nutrition
 GET /products/123?groups=product:read,admin,debug
 ```
 
-## Groupes disponibles
-
-Voici les groupes actuellement définis dans l'application :
-
-- `default` : Champs de base (id, code, name, imageUrl)
-- `product:list` : Champs pour les listes de produits (id, code, name, imageUrl)
-- `product:read` : Champs détaillés d'un produit (tous les champs de base + description, defaultDlcTime, createdAt, updatedAt)
-- `nutrition` : Informations nutritionnelles
-- `admin` : Informations administratives (dates, durées de conservation)
-- `debug` : Données brutes et techniques
-
-## Implémentation technique
-
 Le système utilise :
 
 - `class-transformer` pour la transformation des objets

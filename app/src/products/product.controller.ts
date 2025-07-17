@@ -38,6 +38,7 @@ export class ProductController {
   })
   @ApiResponse({ status: 400, description: 'Requête invalide' })
   @Post()
+  @SerializationGroups('product:read')
   create(@Body() createProductDto: CreateProductDto) {
     return this.productService.create(createProductDto);
   }
@@ -121,6 +122,7 @@ export class ProductController {
   })
   @ApiResponse({ status: 404, description: 'Produit non trouvé' })
   @Patch(':id')
+  @SerializationGroups('product:read')
   update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
     return this.productService.update(id, updateProductDto);
   }
