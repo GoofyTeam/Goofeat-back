@@ -23,7 +23,6 @@ export class ProductSeedService {
       );
     }
 
-    // Les ingrédients doivent venir d'OpenFoodFacts, on mappe par offTag
     const productDefinitions = [
       {
         name: 'Pâtes Penne Rigate Barilla',
@@ -31,7 +30,7 @@ export class ProductSeedService {
         description: 'Pâtes de semoule de blé dur',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/807/680/951/3722/front_fr.465.400.jpg',
-        ingredientOffTag: 'en:durum-wheat-semolina', // à ajuster
+        ingredientOffTag: 'en:durum-wheat-semolina',
       },
       {
         name: 'Thon au naturel Petit Navire',
@@ -39,7 +38,7 @@ export class ProductSeedService {
         description: 'Thon albacore au naturel, pêche responsable',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/356/007/039/4173/front_fr.25.400.jpg',
-        ingredientOffTag: 'en:yellowfin-tuna', // à ajuster
+        ingredientOffTag: 'en:yellowfin-tuna',
       },
       {
         name: "Huile d'olive vierge extra Puget",
@@ -48,7 +47,7 @@ export class ProductSeedService {
           "Huile d'olive de catégorie supérieure obtenue directement des olives",
         imageUrl:
           'https://images.openfoodfacts.org/images/products/303/294/000/0019/front_fr.102.400.jpg',
-        ingredientOffTag: 'en:olive-oil', // à ajuster
+        ingredientOffTag: 'en:olive-oil',
       },
       {
         name: 'Tomates pelées en jus Mutti',
@@ -80,7 +79,7 @@ export class ProductSeedService {
         description: 'Lardons fumés de qualité supérieure',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/301/136/000/5285/front_fr.55.400.jpg',
-        ingredientOffTag: 'en:lardon', // à ajuster
+        ingredientOffTag: 'en:lardon',
       },
       {
         name: 'Oeufs frais de poules élevées en plein air',
@@ -96,7 +95,7 @@ export class ProductSeedService {
         description: 'Fromage à pâte dure, affinage 22 mois',
         imageUrl:
           'https://images.openfoodfacts.org/images/products/800/272/000/0000/front_it.12.400.jpg',
-        ingredientOffTag: 'en:parmigiano-reggiano', // à ajuster
+        ingredientOffTag: 'en:parmigiano-reggiano',
       },
     ];
 
@@ -104,6 +103,17 @@ export class ProductSeedService {
     this.logger.log('Début de la création des produits...');
 
     for (const productDef of productDefinitions) {
+      const existingProduct = await this.productRepository.findOne({
+        where: { code: productDef.barcode },
+      });
+
+      if (existingProduct) {
+        this.logger.log(
+          `Le produit "${productDef.name}" existe déjà. Il est ignoré.`,
+        );
+        continue;
+      }
+
       const { ingredientOffTag, ...productData } = productDef;
       const ingredient = ingredients.find((i) => i.offTag === ingredientOffTag);
       if (!ingredient) {
@@ -114,9 +124,8 @@ export class ProductSeedService {
       }
       const product = this.productRepository.create({
         ...productData,
-        id: productData.barcode,
-        code: productData.barcode,
-        ingredientId: ingredient.id,
+        code: productData.barcode, // 'code' est le nom de la propriété dans l'entité Product
+        ingredients: [ingredient], // Assigner l'ingrédient dans un tableau
       });
       const savedProduct = await this.productRepository.save(product);
       createdProducts.push(savedProduct);

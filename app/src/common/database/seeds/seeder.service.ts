@@ -7,7 +7,6 @@ import { RecipeIngredient } from 'src/recipes/entities/recipe-ingredient.entity'
 import { Recipe } from 'src/recipes/entities/recipe.entity';
 import { Repository } from 'typeorm';
 import { CategorySeedService } from './category.seed';
-import { IngredientSeedService } from './ingredient.seed';
 import { ProductSeedService } from './product.seed';
 import { RecipeSeedService } from './recipe.seed';
 
@@ -17,7 +16,6 @@ export class SeederService {
 
   constructor(
     private readonly categorySeedService: CategorySeedService,
-    private readonly ingredientSeedService: IngredientSeedService,
     private readonly productSeedService: ProductSeedService,
     private readonly recipeSeedService: RecipeSeedService,
     @InjectRepository(Recipe)
@@ -56,15 +54,6 @@ export class SeederService {
 
   async seedAll() {
     this.logger.log('Démarrage du processus de seeding complet...');
-
-    // Étape 0: Nettoyer la base de données
-    // await this.clearDatabase();
-
-    // this.logger.log('Étape 1: Seeding des catégories...');
-    // await this.categorySeedService.seed();
-
-    // this.logger.log('Étape 2: Seeding des ingrédients génériques...');
-    // await this.ingredientSeedService.seed();
 
     this.logger.log('Étape 3: Seeding des produits...');
     await this.productSeedService.seed();

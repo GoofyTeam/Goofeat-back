@@ -9,7 +9,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { classToPlain, ClassTransformOptions } from 'class-transformer';
+import { ClassTransformOptions, instanceToPlain } from 'class-transformer';
 import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -26,13 +26,11 @@ export class SerializerInterceptor implements NestInterceptor {
       context.getHandler(),
     );
 
-    console.log('Handler groups:', handlerGroups);
     const classGroups = this.reflector.get<string[]>(
       SERIALIZATION_GROUP_KEY,
       context.getClass(),
     );
 
-    console.log('Class groups:', classGroups);
     const request = context.switchToHttp().getRequest<Request>();
 
     let groups: string[] | undefined = this.getSerializationGroups(request);
@@ -75,8 +73,7 @@ export class SerializerInterceptor implements NestInterceptor {
       };
     }
 
-    // Transformer l'objet en utilisant class-transformer
-    const result = classToPlain(data, options);
+    const result = instanceToPlain(data, options);
 
     return result;
   }

@@ -6,7 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CategoryModule } from './categories/category.module';
 import { DatabaseModule } from './common/database/database.module';
-import { SeederModule } from './common/database/seeds/seeder.module';
+
 import { ElasticsearchModule } from './common/elasticsearch/elasticsearch.module';
 import { LoggerMiddleware } from './common/logger/logger.middleware';
 import { LoggerModule } from './common/logger/logger.module';
@@ -33,7 +33,7 @@ import { UsersModule } from './users/users.module';
     RecipeModule,
     StockModule,
     EventEmitterModule.forRoot(),
-    SeederModule,
+
     ElasticsearchModule,
     UnitsModule,
   ],

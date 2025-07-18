@@ -29,22 +29,24 @@ export class ProductService {
    * Recherche d'abord le produit en base, sinon création via Open Food Facts
    */
   async createFromBarcode(barcode: string) {
-    // 1. Chercher le produit dans la BDD
-    const existing = await this.productRepository.findOne({
-      where: { id: barcode }, // id = code-barres
+    const existingProduct = await this.productRepository.findOne({
+      where: { code: barcode },
+      relations: ['ingredients'],
     });
-    if (existing) {
-      return existing;
+
+    if (existingProduct) {
+      return existingProduct;
     }
-    // 2. Sinon, récupérer les données via OFF puis créer
+
     try {
       const productData =
         await this.productDataService.getProductByBarcode(barcode);
-      const product = this.productRepository.create(productData);
-      const created = await this.productRepository.save(product);
+
+      const productToSave = this.productRepository.create(productData);
+      await this.productRepository.save(productToSave);
       return this.productRepository.findOne({
-        where: { id: created.id },
-        relations: ['ingredient'],
+        where: { code: barcode },
+        relations: ['ingredients'],
       });
     } catch (error: unknown) {
       const errorMessage =

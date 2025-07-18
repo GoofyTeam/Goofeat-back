@@ -197,13 +197,13 @@ export class RecipeSeedService {
       });
 
       if (finalRecipe) {
-        this.logger.debug(
-          `Final recipe object for ${finalRecipe.name}: ${JSON.stringify(
-            finalRecipe,
-            null,
-            2,
-          )}`,
-        );
+        //   this.logger.debug(
+        //     `Final recipe object for ${finalRecipe.name}: ${JSON.stringify(
+        //       finalRecipe,
+        //       null,
+        //       2,
+        //     )}`,
+        //   );
 
         await this.eventEmitter.emitAsync(
           RecipeEventName.RecipeCreated,

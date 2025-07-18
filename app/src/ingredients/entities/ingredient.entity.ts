@@ -7,6 +7,7 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -99,9 +100,7 @@ export class Ingredient {
   @Type(() => Category)
   category?: Category;
 
-  @OneToMany(() => Product, (product) => product.ingredient)
-  @Expose({ groups: ['ingredient:read'] })
-  @Type(() => Product)
+  @ManyToMany(() => Product, (product) => product.ingredients)
   products: Product[];
 
   @CreateDateColumn()

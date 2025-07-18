@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { Unit } from 'src/common/units/unit.enums';
+import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { ProductData, ProductDataService } from './product-data.interface';
 
 /**
@@ -15,6 +17,14 @@ export class MockProductService implements ProductDataService {
       price: 3.99,
       imageUrl:
         'https://images.openfoodfacts.org/images/products/301/762/042/2003/front_fr.429.400.jpg',
+      packagingSize: 400,
+      defaultUnit: Unit.G,
+      ingredients: [
+        {
+          id: 'some-ingredient-uuid-1',
+          offTag: 'en:mock-ingredient-1',
+        } as Ingredient,
+      ],
     },
     {
       barcode: '3017620425035',
@@ -23,6 +33,14 @@ export class MockProductService implements ProductDataService {
       price: 1.99,
       imageUrl:
         'https://images.openfoodfacts.org/images/products/301/762/042/5035/front_fr.69.400.jpg',
+      packagingSize: 300,
+      defaultUnit: Unit.G,
+      ingredients: [
+        {
+          id: 'some-ingredient-uuid-2',
+          offTag: 'en:mock-ingredient-2',
+        } as Ingredient,
+      ],
     },
     // Ajoutez d'autres produits simulés selon vos besoins
   ];
