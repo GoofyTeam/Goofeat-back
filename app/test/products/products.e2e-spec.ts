@@ -1,45 +1,37 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { SeederModule } from 'src/common/database/seeds/seeder.module';
+import { SeederService } from 'src/common/database/seeds/seeder.service';
 import { Product } from 'src/products/entities/product.entity';
 import * as request from 'supertest';
-import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
-import { Ingredient } from '../../src/ingredients/entities/ingredient.entity';
 
 describe('Product E2E - OpenFoodFacts import & ingredient link', () => {
   let app: INestApplication;
-  let dataSource: DataSource;
-  let ingredient: Ingredient;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [AppModule, SeederModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    const seederService = moduleFixture.get<SeederService>(SeederService);
+
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
     );
+
+    await seederService.seedAll();
     await app.init();
-
-    dataSource = app.get(DataSource);
-    // Clean DB before test (optionnel, à adapter selon stratégie)
-    // await dataSource.getRepository(Product).delete({});
-    // await dataSource.getRepository(Ingredient).delete({});
-    // // Crée un ingrédient en base qui correspond à un tag OFF connu
-
-    ingredient = (await dataSource.getRepository(Ingredient).findOne({
-      where: { offTag: 'en:superior-quality-durum-wheat-semolina' },
-    })) as Ingredient;
-  });
+  }, 60000);
 
   afterAll(async () => {
     await app.close();
   });
 
-  it("crée un produit depuis OFF et lie correctement l'ingrédient", async () => {
-    // Code-barres d\'un produit Nutella (contenant des noisettes)
+  it("crée un produit Panzani Torti et lie ses ingrédients, dont 'semoule de blé dur'", async () => {
+    // Code-barres d'un produit Panzani Torti
     const barcode = '3038350023605';
     const res = await request(app.getHttpServer())
       .get('/product/barcode/' + barcode)
@@ -47,13 +39,21 @@ describe('Product E2E - OpenFoodFacts import & ingredient link', () => {
       .expect(200);
     const body: Product = res.body as Product;
 
-    expect(body).toHaveProperty('id', barcode);
-    expect(body).toHaveProperty('ingredientId', ingredient.id);
-    expect(body.ingredient).toBeDefined();
-    expect(body.ingredient.offTag).toBe(
-      'en:superior-quality-durum-wheat-semolina',
+    // Vérifie les propriétés de base du produit
+    expect(body).toHaveProperty('code', barcode);
+    expect(body.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
     expect(body.name).toMatch('Torti');
-    // expect(res.body.rawData).toBeDefined();
-  });
+
+    // Vérifie que le produit a une liste d'ingrédients
+    expect(body.ingredients).toBeDefined();
+    expect(Array.isArray(body.ingredients)).toBe(true);
+    expect(body.ingredients.length).toBeGreaterThan(0);
+
+    // Vérifie que la liste contient bien l'ingrédient attendu
+    expect(body.ingredients.map((i) => i.offTag)).toContain(
+      'en:superior-quality-durum-wheat-semolina',
+    );
+  }, 30000);
 });

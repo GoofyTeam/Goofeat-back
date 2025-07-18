@@ -1,5 +1,5 @@
 import { HttpModule } from '@nestjs/axios';
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IngredientsModule } from 'src/ingredients/ingredients.module';
 import { ElasticsearchModule } from 'src/common/elasticsearch/elasticsearch.module';
@@ -14,7 +14,7 @@ import { ProductService } from './product.service';
     TypeOrmModule.forFeature([Product]),
     HttpModule,
     ElasticsearchModule,
-    IngredientsModule,
+    forwardRef(() => IngredientsModule),
   ],
   controllers: [ProductController],
   providers: [

@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { APIResponse, OFF as OFFClass } from 'openfoodfacts-nodejs';
+import { parseQuantity } from 'src/common/units/unit.utils';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Repository } from 'typeorm';
 import { ProductData, ProductDataService } from './product-data.interface';
@@ -82,62 +84,62 @@ export class OpenFoodFactsService implements ProductDataService {
     }
   }
 
-  /**
-   * Transforme les données d'OpenFoodFacts en format ProductData
-   * @param openFoodFactsProduct Produit provenant de l'API OpenFoodFacts (peut être de type Product ou ProductsEntity)
-   */
-  /**
-   * Transforme les données d'OpenFoodFacts en format ProductData conforme à notre modèle
-   * - mappe le code-barres dans id ET code
-   * - tente de lier l'ingrédient par tag OFF ou nom (si service disponible)
-   */
   private async mapToProductData(
     openFoodFactsProduct: APIResponse.ProductsEntity | APIResponse.Product,
   ): Promise<ProductData> {
-    // Assurons-nous que name est toujours défini comme une chaîne
     const name: string = openFoodFactsProduct.product_name || 'Nom inconnu';
     const barcode: string =
       openFoodFactsProduct.code || openFoodFactsProduct._id;
 
-    // Recherche de l'ingrédient correspondant (par offTag ou nom)
-    // Nécessite l'accès au repo Ingredient (injection à ajouter au service)
-    let ingredientId: string | undefined = undefined;
+    // Recherche des ingrédients correspondants
+    const ingredients: Ingredient[] = [];
     if (this.ingredientRepository) {
-      // Essayer de trouver par tag OFF
-      const offTag = openFoodFactsProduct.ingredients_tags?.[0];
-      let ingredient: Ingredient | null = null;
-      if (offTag) {
-        ingredient = await this.ingredientRepository.findOne({
-          where: { offTag },
-        });
-      }
+      const tagsToSearch = [(openFoodFactsProduct as any).food_groups || []];
 
-      // essayer par nom
-      if (!ingredient && name) {
-        ingredient = await this.ingredientRepository.findOne({
-          where: [{ nameFr: name }, { nameEn: name }, { name: name }],
+      const uniqueTags = [...new Set(tagsToSearch)];
+
+      console.log(uniqueTags);
+      for (const tag of uniqueTags) {
+        const cleanedOffTag = tag.replace(/\s+/g, '').trim();
+        const found = await this.ingredientRepository.findOne({
+          where: { offTag: cleanedOffTag },
         });
-      }
-      if (ingredient) {
-        ingredientId = ingredient.id;
+
+        if (found) {
+          console.log(`Ingrédient trouvé via le tag: ${cleanedOffTag}`);
+          ingredients.push(found);
+        }
       }
     }
 
-    return {
-      id: barcode, // code-barres = clé primaire
+    const parsedQuantity = parseQuantity(openFoodFactsProduct.quantity);
+
+    if (parsedQuantity.value === null || parsedQuantity.unit === null) {
+      throw new Error(
+        `Quantité ou unité invalide pour le produit ${name} (${barcode})`,
+      );
+    }
+
+    const productData: ProductData = {
       code: barcode,
       name,
       description: openFoodFactsProduct.ingredients_text || '',
       imageUrl:
         openFoodFactsProduct.image_url || openFoodFactsProduct.image_front_url,
       nutriments: openFoodFactsProduct.nutriments,
-      ingredientId,
-      rawData: openFoodFactsProduct,
+      ingredients,
+      packagingSize: parsedQuantity.value,
+      defaultUnit: parsedQuantity.unit,
+      // rawData: openFoodFactsProduct,
+
       // categories: openFoodFactsProduct.categories,
       // categories_tags: openFoodFactsProduct.categories_tags,
       // categories_properties: openFoodFactsProduct.categories_properties,
       // categories_properties_tags:
       //   openFoodFactsProduct.categories_properties_tags,
     };
+
+    // console.log((openFoodFactsProduct as any).food_groups);
+    return productData;
   }
 }

@@ -4,6 +4,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // Import correct de la classe OFF
 const OFF = require('openfoodfacts-nodejs');
+import { APIResponse } from 'openfoodfacts-nodejs';
+import { Unit } from 'src/common/units/unit.enums';
+import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
+import { parseQuantity } from '../common/units/unit.utils';
 import { ProductData } from './lib/product-data.interface';
 
 /**
@@ -18,7 +22,9 @@ async function testOpenFoodFacts() {
     // Test de récupération par code-barres (Nutella)
     console.log("Test 1: Récupération d'un produit par code-barres (Nutella)");
     const barcode = '3017620422003';
-    const productData = await client.getProduct(barcode);
+    const productData = (await client.getProduct(barcode)) as {
+      product: APIResponse.Product;
+    };
 
     if (productData && productData.product) {
       console.log('✅ Produit trouvé:', productData.product.product_name);
@@ -55,7 +61,27 @@ async function testOpenFoodFacts() {
           productData.product.image_url || productData.product.image_front_url,
         nutriments: productData.product.nutriments,
         rawData: productData.product,
+        packagingSize: 0,
+        defaultUnit: Unit.G,
+        ingredients: [
+          {
+            id: 'temp-ingredient-id',
+            nameFr: 'temp-ingredient-id',
+            nameEn: 'temp-ingredient-id',
+            offTag: 'temp-ingredient-id',
+          },
+        ] as Ingredient[],
       };
+
+      const parsed = parseQuantity(productData.product.quantity);
+      if (parsed.value !== null && parsed.unit !== null) {
+        mappedProduct.packagingSize = parsed.value;
+        mappedProduct.defaultUnit = parsed.unit;
+      } else {
+        console.warn(
+          `Quantité non reconnue pour ${mappedProduct.name}: ${productData.product.quantity}`,
+        );
+      }
 
       console.log('✅ Produit mappé:', mappedProduct.name);
       console.log(

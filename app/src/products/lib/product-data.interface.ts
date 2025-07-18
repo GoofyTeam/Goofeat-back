@@ -1,3 +1,6 @@
+import { Unit } from 'src/common/units/unit.enums';
+import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
+
 /**
  * Interface pour les services de récupération de données produits
  * Cette interface permet d'abstraire la source de données (OpenFoodFacts, autre API, etc.)
@@ -21,12 +24,15 @@ export interface ProductDataService {
  * Structure de données pour les informations produits
  */
 export interface ProductData {
+  id?: string;
   barcode?: string;
   name: string;
   description?: string;
   price?: number;
   imageUrl?: string;
-  // Autres propriétés communes à tous les produits
-  // Indépendamment de la source de données
+  packagingSize: number;
+  defaultUnit: Unit;
+  ingredients: Ingredient[];
+  // Autres
   [key: string]: any; // Propriétés supplémentaires spécifiques à chaque API
 }

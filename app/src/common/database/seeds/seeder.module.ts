@@ -13,7 +13,6 @@ import { Recipe } from 'src/recipes/entities/recipe.entity';
 import { RecipeModule } from 'src/recipes/recipe.module';
 import { DatabaseModule } from '../database.module';
 import { CategorySeedService } from './category.seed';
-import { IngredientSeedService } from './ingredient.seed';
 import { ProductSeedService } from './product.seed';
 import { RecipeSeedService } from './recipe.seed';
 import { SeederService } from './seeder.service';
@@ -37,7 +36,6 @@ import { SeederService } from './seeder.service';
   ],
   providers: [
     CategorySeedService,
-    IngredientSeedService,
     ProductSeedService,
     RecipeSeedService,
     SeederService,

@@ -7,26 +7,24 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
-  ManyToOne,
+  JoinTable,
+  ManyToMany,
   OneToMany,
-  PrimaryColumn,
-  Unique,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 // import { Category } from '../../../categories/category/entities/category.entity';
 
-@Unique(['code'])
 @Entity('products')
 export class Product {
   @Expose({
     groups: ['default', 'product:read', 'product:list', 'product:barcode-min'],
   })
   @ApiProperty({
-    description: 'Identifiant du produit (code-barres)',
-    example: '3017620422003',
+    description: 'Identifiant unique du produit (UUID)',
+    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
   })
-  @PrimaryColumn({ type: 'varchar' })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @OneToMany(() => Stock, (stock) => stock.product)
@@ -37,7 +35,7 @@ export class Product {
   @Expose({
     groups: ['default', 'product:read', 'product:list', 'product:barcode-min'],
   })
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', unique: true, nullable: true })
   code: string;
 
   @Expose({
@@ -133,20 +131,16 @@ export class Product {
   @Column({ type: 'float', nullable: true })
   packagingSize?: number;
 
-  @Expose({ groups: ['product:read', 'product:barcode-min'] })
-  @ApiProperty({
-    description: "Identifiant de l'ingrédient générique associé",
-  })
-  @Column()
-  ingredientId: string;
-
-  @ManyToOne(() => Ingredient, (ingredient) => ingredient.products, {
+  @ManyToMany(() => Ingredient, (ingredient) => ingredient.products, {
     eager: true,
-    nullable: false,
-    onDelete: 'CASCADE',
+    cascade: true,
   })
-  @JoinColumn({ name: 'ingredientId' })
+  @JoinTable({
+    name: 'product_ingredients',
+    joinColumn: { name: 'productId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'ingredientId', referencedColumnName: 'id' },
+  })
   @Expose({ groups: ['product:read', 'product:barcode-min'] })
   @Type(() => Ingredient)
-  ingredient: Ingredient;
+  ingredients: Ingredient[];
 }

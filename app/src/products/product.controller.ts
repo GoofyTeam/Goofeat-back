@@ -102,7 +102,7 @@ export class ProductController {
   @Get('barcode/:barcode')
   async createFromBarcode(
     @Param('barcode') barcode: string,
-    @Query('groups') groups?: string,
+    // @Query('groups') groups?: string,
   ) {
     const product = await this.productService.createFromBarcode(barcode);
     return product;
