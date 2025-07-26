@@ -14,11 +14,6 @@ import { CreateStockDto } from './dto/create-stock.dto';
 import { FilterStockDto } from './dto/filter-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { Stock } from './entities/stock.entity';
-import {
-  StockCreatedEvent,
-  StockDeletedEvent,
-  StockUpdatedEvent,
-} from './events/stock.events';
 
 @Injectable()
 export class StockService {
@@ -56,12 +51,12 @@ export class StockService {
       relations: ['product', 'user'],
     });
 
-    // Émettre l'événement de création
+    // Émettre l'événement de création avec l'utilisateur
     if (stockWithRelations) {
-      this.eventEmitter.emit(
-        'stock.created',
-        new StockCreatedEvent(stockWithRelations),
-      );
+      this.eventEmitter.emit('stock.created', {
+        stock: stockWithRelations,
+        user,
+      });
     }
 
     return savedStock;
@@ -130,10 +125,12 @@ export class StockService {
     });
 
     if (stockWithRelations) {
-      this.eventEmitter.emit(
-        'stock.updated',
-        new StockUpdatedEvent(stockWithRelations, previousDlc),
-      );
+      this.eventEmitter.emit('stock.updated', {
+        stock: stockWithRelations,
+        user: currentUser,
+        oldQuantity: stock.quantity,
+        oldDlc: previousDlc,
+      });
     }
 
     return savedStock;
@@ -144,6 +141,9 @@ export class StockService {
     const stock = await this.findOne(id, currentUser);
     await this.stockRepository.delete(id);
 
-    this.eventEmitter.emit('stock.deleted', new StockDeletedEvent(stock.id));
+    this.eventEmitter.emit('stock.deleted', {
+      stock,
+      user: currentUser,
+    });
   }
 }
