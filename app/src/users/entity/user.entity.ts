@@ -76,6 +76,9 @@ export class User {
   @Expose({ groups: ['user:read'] })
   notificationSettings: Record<string, unknown>;
 
+  @Column({ type: 'varchar', nullable: true })
+  fcmToken?: string | null;
+
   @Column({
     type: 'simple-array',
     enum: Role,

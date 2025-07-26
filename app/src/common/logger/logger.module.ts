@@ -12,6 +12,18 @@ import { LoggerService } from './logger.service';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const isProduction = configService.get('NODE_ENV') === 'production';
+        const isTest = configService.get('NODE_ENV') === 'test';
+
+        if (isTest) {
+          return {
+            transports: [
+              new winston.transports.Console({
+                silent: true,
+              }),
+            ],
+          };
+        }
+
         const consoleFormat = winston.format.combine(
           winston.format.timestamp(),
           winston.format.colorize(),

@@ -196,3 +196,4 @@ cython_debug/
 .idea/
 node_modules
 .windsurf
+app/firebase_admin-SDK.json

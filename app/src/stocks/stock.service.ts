@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { add } from 'date-fns';
 import { Product } from 'src/products/entities/product.entity';
@@ -13,6 +14,11 @@ import { CreateStockDto } from './dto/create-stock.dto';
 import { FilterStockDto } from './dto/filter-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { Stock } from './entities/stock.entity';
+import {
+  StockCreatedEvent,
+  StockDeletedEvent,
+  StockUpdatedEvent,
+} from './events/stock.events';
 
 @Injectable()
 export class StockService {
@@ -21,6 +27,7 @@ export class StockService {
     private stockRepository: Repository<Stock>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async create(createStockDto: CreateStockDto, user: User): Promise<Stock> {
@@ -42,7 +49,22 @@ export class StockService {
     }
 
     const stock = this.stockRepository.create({ ...createStockDto, user });
-    return this.stockRepository.save(stock);
+    const savedStock = await this.stockRepository.save(stock);
+
+    const stockWithRelations = await this.stockRepository.findOne({
+      where: { id: savedStock.id },
+      relations: ['product', 'user'],
+    });
+
+    // Émettre l'événement de création
+    if (stockWithRelations) {
+      this.eventEmitter.emit(
+        'stock.created',
+        new StockCreatedEvent(stockWithRelations),
+      );
+    }
+
+    return savedStock;
   }
 
   async findAll(
@@ -96,13 +118,32 @@ export class StockService {
     currentUser: User,
   ): Promise<Stock> {
     const stock = await this.findOne(id, currentUser); // findOne now handles admin checks
+    const previousDlc = stock.dlc;
+
     const updatedStock = this.stockRepository.merge(stock, updateStockDto);
-    return this.stockRepository.save(updatedStock);
+    const savedStock = await this.stockRepository.save(updatedStock);
+
+    // Charger les relations pour l'événement
+    const stockWithRelations = await this.stockRepository.findOne({
+      where: { id: savedStock.id },
+      relations: ['product', 'user'],
+    });
+
+    if (stockWithRelations) {
+      this.eventEmitter.emit(
+        'stock.updated',
+        new StockUpdatedEvent(stockWithRelations, previousDlc),
+      );
+    }
+
+    return savedStock;
   }
 
   async remove(id: string, currentUser: User): Promise<void> {
     // findOne now handles admin checks
-    await this.findOne(id, currentUser);
+    const stock = await this.findOne(id, currentUser);
     await this.stockRepository.delete(id);
+
+    this.eventEmitter.emit('stock.deleted', new StockDeletedEvent(stock.id));
   }
 }
