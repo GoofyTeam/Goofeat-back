@@ -60,8 +60,6 @@ export class SerializerInterceptor implements NestInterceptor {
       return data;
     }
 
-    console.log('Options class-transformer:', options);
-
     if (Array.isArray(data)) {
       return data.map((item) => this.serialize(item, options));
     }
