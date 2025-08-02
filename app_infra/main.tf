@@ -94,17 +94,18 @@ resource "aws_codepipeline" "codepipeline" {
 
   stage {
     name = "Source"
-
     action {
-      name             = "DummySource"
+      name             = "SourceAction"
       category         = "Source"
-      owner            = "AWS"
-      provider         = "S3"
+      owner            = "ThirdParty"
+      provider         = "GitHub"
       version          = "1"
-      output_artifacts = ["dummy_output"]
-      configuration = {
-        S3Bucket = aws_s3_bucket.codepipeline_bucket.bucket
-        S3ObjectKey = "dummy.zip"
+      output_artifacts = ["source_output"]
+      configuration    = {
+        Owner      = var.github_repo_owner
+        Repo       = var.github_repo_name
+        Branch     = var.github_branch
+        OAuthToken = var.github_oauth_token
       }
     }
   }
@@ -117,28 +118,11 @@ resource "aws_codepipeline" "codepipeline" {
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"
-      input_artifacts  = ["dummy_output"]
+      input_artifacts  = ["source_output"]
       output_artifacts = ["build_output"]
       version          = "1"
       configuration = {
         ProjectName = aws_codebuild_project.goofeat_app.name
-      }
-    }
-  }
-
-  stage {
-    name = "Test"
-
-    action {
-      name             = "TestAction"
-      category         = "Test"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["dummy_output"]
-      output_artifacts = ["test_output"]
-      version          = "1"
-      configuration    = {
-        ProjectName = aws_codebuild_project.goofeat_app_test.name
       }
     }
   }
@@ -200,6 +184,10 @@ resource "aws_codebuild_project" "goofeat_app" {
     environment_variable {
       name  = "ECS_TASK_DEFINITION"
       value = aws_ecs_task_definition.goofeat_app.family
+    }
+    environment_variable {
+      name  = "GITHUB_TOKEN"
+      value = var.github_oauth_token
     }
   }
   source {
