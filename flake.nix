@@ -15,7 +15,7 @@
         };
       in {
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pkgs.terraform pkgs.yarn ];
+          buildInputs = [ pkgs.terraform pkgs.yarn pkgs.awscli2 ];
 
           shellHook = ''
             echo "Terraform environment ready"
