@@ -2,7 +2,7 @@
   description = "Development environment with Terraform and Yarn";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -15,7 +15,7 @@
         };
       in {
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pkgs.terraform pkgs.yarn ];
+          buildInputs = [ pkgs.terraform pkgs.yarn pkgs.awscli2 ];
 
           shellHook = ''
             echo "Terraform environment ready"

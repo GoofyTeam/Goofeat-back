@@ -94,18 +94,17 @@ resource "aws_codepipeline" "codepipeline" {
 
   stage {
     name = "Source"
+
     action {
-      name             = "SourceAction"
+      name             = "DummySource"
       category         = "Source"
-      owner            = "ThirdParty"
-      provider         = "GitHub"
+      owner            = "AWS"
+      provider         = "S3"
       version          = "1"
-      output_artifacts = ["source_output"]
-      configuration    = {
-        Owner      = var.github_repo_owner
-        Repo       = var.github_repo_name
-        Branch     = var.github_branch
-        OAuthToken = var.github_oauth_token
+      output_artifacts = ["dummy_output"]
+      configuration = {
+        S3Bucket = aws_s3_bucket.codepipeline_bucket.bucket
+        S3ObjectKey = "dummy.zip"
       }
     }
   }
@@ -118,7 +117,7 @@ resource "aws_codepipeline" "codepipeline" {
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
+      input_artifacts  = ["dummy_output"]
       output_artifacts = ["build_output"]
       version          = "1"
       configuration = {
@@ -129,12 +128,13 @@ resource "aws_codepipeline" "codepipeline" {
 
   stage {
     name = "Test"
+
     action {
       name             = "TestAction"
       category         = "Test"
       owner            = "AWS"
       provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
+      input_artifacts  = ["dummy_output"]
       output_artifacts = ["test_output"]
       version          = "1"
       configuration    = {
