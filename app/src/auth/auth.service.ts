@@ -94,12 +94,9 @@ export class AuthService {
     if (existingUser) {
       throw new UnauthorizedException('Cet email est déjà utilisé');
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const newUser = await this.usersService.create({
       email,
-      password: hashedPassword,
+      password: password, // Passer le mot de passe en clair
       firstName,
       lastName,
     });

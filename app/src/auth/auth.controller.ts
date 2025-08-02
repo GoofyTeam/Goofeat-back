@@ -10,8 +10,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiBody } from '@nestjs/swagger';
 import { User } from '../users/entity/user.entity';
 import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginThrottlingGuard } from './guards/login-throttling.guard';
 
@@ -109,7 +111,8 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(LoginThrottlingGuard, AuthGuard('local'))
-  login(@Req() req: RequestWithUser) {
+  @ApiBody({ type: LoginDto })
+  login(@Body() loginDto: LoginDto, @Req() req: RequestWithUser) {
     const user = req.user;
     const token = this.authService.generateJwtToken(user);
 

@@ -10,6 +10,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import * as bcrypt from 'bcrypt';
 import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -19,12 +26,21 @@ import { UsersService } from './users.service';
 
 // Interface RequestWithUser n'est plus nécessaire avec le décorateur @CurrentUser
 
+@ApiTags('Profil Utilisateur')
 @Controller('user')
 export class UserProfileController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('profile')
   @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Obtenir le profil de l'utilisateur connecté" })
+  @ApiResponse({
+    status: 200,
+    description: 'Profil récupéré avec succès',
+    type: User,
+  })
+  @ApiResponse({ status: 401, description: 'Non autorisé' })
   @SerializationGroups('user:read')
   getProfile(@CurrentUser() user: User) {
     return user;
@@ -33,6 +49,20 @@ export class UserProfileController {
   @Put('profile')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Mettre à jour le profil de l'utilisateur connecté",
+  })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Profil mis à jour avec succès',
+    type: User,
+  })
+  @ApiResponse({ status: 400, description: 'Données invalides' })
+  @ApiResponse({ status: 401, description: 'Non autorisé' })
+  @ApiResponse({ status: 409, description: 'Email déjà utilisé' })
+  @ApiResponse({ status: 403, description: 'Mot de passe actuel incorrect' })
   @SerializationGroups('user:read')
   async updateProfile(
     @CurrentUser() currentUser: User,

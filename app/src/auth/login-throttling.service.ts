@@ -7,7 +7,7 @@ export class LoginThrottlingService {
     string,
     { count: number; lastAttempt: Date }
   > = new Map();
-  private readonly MAX_ATTEMPTS = 5;
+  private readonly MAX_ATTEMPTS = 50;
   private readonly LOCK_TIME_MS = 10 * 60 * 1000; // 10 minutes en millisecondes
 
   /**
