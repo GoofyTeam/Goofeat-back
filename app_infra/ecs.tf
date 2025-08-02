@@ -1,32 +1,5 @@
 # ecs.tf
 
-resource "aws_ecr_repository" "goofeat_app" {
-  name                 = var.image_repo_name
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
-}
-
-resource "aws_ecr_lifecycle_policy" "goofeat_app" {
-  repository = aws_ecr_repository.goofeat_app.name
-
-  policy = jsonencode({
-    rules = [
-      {
-        rulePriority = 1
-        description  = "Keep last 10 images"
-        selection    = {
-          tagStatus = "any"
-          countType = "imageCountMoreThan"
-          countNumber = 10
-        }
-        action = {
-          type = "expire"
-        }
-      },
-    ]
-  })
-}
-
 resource "aws_ecs_cluster" "goofeat_app" {
   name = var.cluster_name
 }
@@ -41,7 +14,7 @@ resource "aws_ecs_task_definition" "goofeat_app" {
   container_definitions = jsonencode([
     {
       name      = "goofeat-app",
-      image     = "${aws_ecr_repository.goofeat_app.repository_url}:${var.image_tag}"
+      image     = "ghcr.io/goofyteam/goofeat-back:${var.image_tag}",
       essential = true,
       portMappings = [
         {
@@ -56,9 +29,27 @@ resource "aws_ecs_task_definition" "goofeat_app" {
           "awslogs-region"        = var.aws_region,
           "awslogs-stream-prefix" = "goofeat-app"
         }
-      }
+      },
+      repositoryCredentials = {
+        credentialsParameter = aws_secretsmanager_secret.ghcr_credentials.arn
+      },
+      secrets = [
+        {
+          name      = "DB_HOST",
+          valueFrom = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:nestjs-db-host"
+        },
+        {
+          name      = "DB_USER",
+          valueFrom = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:nestjs-db-user"
+        },
+        {
+          name      = "DB_PASS",
+          valueFrom = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:nestjs-db-password"
+        }
+      ]
     }
   ])
+
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"

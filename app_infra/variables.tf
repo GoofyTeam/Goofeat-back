@@ -61,3 +61,14 @@ variable "file_name" {
   type        = string
   default     = "imagedefinitions.json"
 }
+
+variable "db_username" {
+  type        = string
+  description = "Master username for the database"
+}
+
+variable "db_password" {
+  type        = string
+  description = "Master password for the database"
+  sensitive   = true
+}

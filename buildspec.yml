@@ -3,25 +3,32 @@ version: 0.2
 
 env:
   variables:
-    GHCR_IMAGE: ghcr.io/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME
+    RAW_GHCR_IMAGE: ghcr.io/GOofyTeam/Goofeat-back
+    IMAGE_TAG: latest
 
 phases:
   install:
     runtime-versions:
       docker: 20
+
   pre_build:
     commands:
+      - if [ -z "$GITHUB_TOKEN" ]; then echo "Missing GITHUB_TOKEN"; exit 1; fi
       - echo Logging in to GitHub Container Registry...
-      - echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-      - export IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - echo $GITHUB_TOKEN | docker login ghcr.io -u GoofyTeam --password-stdin
+      - export GHCR_IMAGE=$(echo "$RAW_GHCR_IMAGE" | tr '[:upper:]' '[:lower:]')
       - echo "Using IMAGE_TAG=$IMAGE_TAG"
+      - echo "Using GHCR_IMAGE=$GHCR_IMAGE"
+
   build:
     commands:
       - echo Pulling Docker image from GHCR...
       - docker pull $GHCR_IMAGE:$IMAGE_TAG
+
   post_build:
     commands:
       - echo Writing image definitions file...
       - printf '[{"name":"goofeat-app","imageUri":"%s"}]' $GHCR_IMAGE:$IMAGE_TAG > imagedefinitions.json
+
 artifacts:
   files: imagedefinitions.json
