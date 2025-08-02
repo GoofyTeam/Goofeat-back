@@ -2,11 +2,17 @@ import {
   Controller,
   Get,
   Query,
-  Request,
   UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { endOfWeek, startOfWeek, subWeeks } from 'date-fns';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { User } from 'src/users/entity/user.entity';
@@ -14,15 +20,89 @@ import { StockLogService } from '../services/stock-log.service';
 
 class WeeklyStatsQuery {
   week?: number;
+
   year?: number;
 }
 
+@ApiTags('Stocks - Logs')
+@ApiBearerAuth()
 @Controller('stocks/logs')
 @UseGuards(AuthGuard('jwt'))
 export class StockLogController {
   constructor(private readonly stockLogService: StockLogService) {}
 
   @Get('weekly-stats')
+  @ApiOperation({
+    summary: 'Obtenir les statistiques hebdomadaires des stocks',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistiques hebdomadaires récupérées avec succès',
+    schema: {
+      type: 'object',
+      properties: {
+        week: { type: 'number', example: 42 },
+        year: { type: 'number', example: 2024 },
+        period: {
+          type: 'object',
+          properties: {
+            start: { type: 'string', format: 'date-time' },
+            end: { type: 'string', format: 'date-time' },
+          },
+        },
+        stats: {
+          type: 'object',
+          properties: {
+            totalUsed: { type: 'number', example: 5.5 },
+            totalWasted: { type: 'number', example: 1.2 },
+            totalSaved: { type: 'number', example: 3.3 },
+          },
+        },
+        logs: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              action: { type: 'string', enum: ['used', 'wasted', 'expired'] },
+              quantityUsed: { type: 'number' },
+              quantityWasted: { type: 'number' },
+              quantitySaved: { type: 'number' },
+              reason: { type: 'string', nullable: true },
+              createdAt: { type: 'string', format: 'date-time' },
+              stock: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  product: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      name: { type: 'string' },
+                    },
+                  },
+                  quantity: { type: 'number' },
+                  dlc: { type: 'string', format: 'date' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiQuery({
+    name: 'week',
+    description: 'Numéro de la semaine (1-52)',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'year',
+    description: 'Année',
+    required: false,
+    type: Number,
+  })
   async getWeeklyStats(
     @CurrentUser() user: User,
     @Query(new ValidationPipe({ transform: true })) query: WeeklyStatsQuery,
@@ -92,6 +172,11 @@ export class StockLogController {
   }
 
   @Get('current-week')
+  @ApiOperation({ summary: 'Obtenir les statistiques de la semaine courante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistiques de la semaine courante récupérées avec succès',
+  })
   async getCurrentWeekStats(@CurrentUser() user: User) {
     const now = new Date();
     const startDate = startOfWeek(now, { weekStartsOn: 1 });
@@ -101,6 +186,13 @@ export class StockLogController {
   }
 
   @Get('last-week')
+  @ApiOperation({
+    summary: 'Obtenir les statistiques de la semaine précédente',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistiques de la semaine précédente récupérées avec succès',
+  })
   async getLastWeekStats(@CurrentUser() user: User) {
     const now = new Date();
     const lastWeek = subWeeks(now, 1);
@@ -111,6 +203,13 @@ export class StockLogController {
   }
 
   @Get('overall-stats')
+  @ApiOperation({
+    summary: "Obtenir les statistiques globales de l'utilisateur",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistiques globales récupérées avec succès',
+  })
   async getOverallStats(@CurrentUser() user: User) {
     return this.stockLogService.getUserStats(user.id);
   }
