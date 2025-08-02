@@ -1,29 +1,14 @@
 # ecs.tf
 
-resource "aws_ecr_repository" "goofeat_app" {
-  name                 = var.image_repo_name
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
+resource "aws_secretsmanager_secret" "ghcr_credentials" {
+  name = "ghcr-creds"
 }
 
-resource "aws_ecr_lifecycle_policy" "goofeat_app" {
-  repository = aws_ecr_repository.goofeat_app.name
-
-  policy = jsonencode({
-    rules = [
-      {
-        rulePriority = 1
-        description  = "Keep last 10 images"
-        selection    = {
-          tagStatus = "any"
-          countType = "imageCountMoreThan"
-          countNumber = 10
-        }
-        action = {
-          type = "expire"
-        }
-      },
-    ]
+resource "aws_secretsmanager_secret_version" "ghcr_credentials_version" {
+  secret_id     = aws_secretsmanager_secret.ghcr_credentials.id
+  secret_string = jsonencode({
+    username = var.github_repo_owner
+    password = var.github_oauth_token
   })
 }
 
@@ -41,7 +26,7 @@ resource "aws_ecs_task_definition" "goofeat_app" {
   container_definitions = jsonencode([
     {
       name      = "goofeat-app",
-      image     = "${aws_ecr_repository.goofeat_app.repository_url}:${var.image_tag}"
+      image     = "ghcr.io/goofyteam/goofeat-back:${var.image_tag}",
       essential = true,
       portMappings = [
         {
@@ -56,9 +41,13 @@ resource "aws_ecs_task_definition" "goofeat_app" {
           "awslogs-region"        = var.aws_region,
           "awslogs-stream-prefix" = "goofeat-app"
         }
+      },
+      repositoryCredentials = {
+        credentialsParameter = aws_secretsmanager_secret.ghcr_credentials.arn
       }
     }
   ])
+
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"
