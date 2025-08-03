@@ -146,4 +146,13 @@ export class UsersService {
 
     return this.usersRepository.save(user);
   }
+
+  async updateEmailVerification(
+    userId: string,
+    verified: boolean,
+  ): Promise<User> {
+    const user = await this.findOne(userId);
+    await this.usersRepository.update(userId, { isEmailVerified: verified });
+    return this.findOne(userId);
+  }
 }
