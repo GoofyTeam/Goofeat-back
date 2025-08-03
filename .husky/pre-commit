@@ -1,6 +1,40 @@
-npm --prefix app run lint
+# Récupérer uniquement les fichiers TypeScript indexés pour le commit
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || echo "")
+
+# Si aucun fichier TypeScript n'est indexé, passer le hook
+if [ -z "$STAGED_FILES" ]; then
+  echo "Aucun fichier TypeScript indexé. Hook ESLint ignoré."
+  exit 0
+fi
+
+# Filtrer uniquement les fichiers dans le dossier app
+APP_FILES=$(echo "$STAGED_FILES" | grep "^app/" | sed 's|^app/||' || echo "")
+
+# Si aucun fichier dans app n'est indexé, passer le hook
+if [ -z "$APP_FILES" ]; then
+  echo "Aucun fichier TypeScript dans app/ indexé. Hook ESLint ignoré."
+  exit 0
+fi
+
+# Vérifier uniquement les fichiers indexés
+echo "Vérification ESLint pour les fichiers indexés :"
+echo "$APP_FILES"
+
+# Exécuter ESLint uniquement sur les fichiers indexés
+cd app
+npx eslint $APP_FILES --fix
 RESULT=$?
-if [ $RESULT -ne 0 ]; then
+
+# Si ESLint a modifié des fichiers, les ajouter au commit
+if [ $RESULT -eq 0 ]; then
+  echo "ESLint terminé avec succès."
+  # Revenir à la racine et ajouter les fichiers modifiés par ESLint
+  cd ..
+  for file in $APP_FILES; do
+    git add "app/$file"
+  done
+  exit 0
+else
   echo "\033[0;31mESLint a détecté des erreurs. Commit annulé.\033[0m"
   exit 1
 fi
