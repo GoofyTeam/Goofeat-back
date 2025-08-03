@@ -57,4 +57,15 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean({ message: 'Le statut actif doit être un booléen' })
   isActive?: boolean;
+
+  @ApiProperty({
+    description: 'Email vérifié',
+    example: false,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean({
+    message: 'Le statut de vérification email doit être un booléen',
+  })
+  isEmailVerified?: boolean;
 }
