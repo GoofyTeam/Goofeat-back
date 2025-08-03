@@ -1,0 +1,234 @@
+<html lang='fr'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Bienvenue sur Goofeat</title>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        background-color: #f5f5f5;
+        margin: 0;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      .header {
+        background: linear-gradient(135deg, #ff6b35, #ff8c42);
+        color: white;
+        padding: 40px 30px;
+        text-align: center;
+      }
+
+      .logo {
+        font-size: 36px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .tagline {
+        font-size: 16px;
+        opacity: 0.9;
+      }
+
+      .content {
+        padding: 40px 30px;
+      }
+
+      .title {
+        color: #2c3e50;
+        font-size: 28px;
+        text-align: center;
+        margin-bottom: 30px;
+        font-weight: 700;
+      }
+
+      .text {
+        font-size: 16px;
+        line-height: 1.8;
+        margin-bottom: 20px;
+        color: #444;
+      }
+
+      .highlight {
+        background: rgba(255, 107, 53, 0.1);
+        padding: 3px 8px;
+        border-radius: 4px;
+        color: #d35400;
+        font-weight: 600;
+      }
+
+      .features {
+        background: #f8f9fa;
+        padding: 25px;
+        border-radius: 8px;
+        margin: 25px 0;
+      }
+
+      .features h3 {
+        color: #2c3e50;
+        margin-bottom: 15px;
+        font-size: 18px;
+      }
+
+      .feature {
+        margin: 12px 0;
+        padding-left: 25px;
+        position: relative;
+        color: #555;
+      }
+
+      .feature::before {
+        content: '✓';
+        color: #ff6b35;
+        font-weight: bold;
+        position: absolute;
+        left: 0;
+      }
+
+      .cta {
+        text-align: center;
+        margin: 35px 0;
+      }
+
+      .btn {
+        display: inline-block;
+        background: linear-gradient(135deg, #ff6b35, #ff8c42);
+        color: white;
+        padding: 15px 40px;
+        text-decoration: none;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 16px;
+        box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+      }
+
+      .info-box {
+        background: #e8f4fd;
+        border-left: 4px solid #3498db;
+        padding: 20px;
+        margin: 25px 0;
+        border-radius: 6px;
+      }
+
+      .footer {
+        background: #2c3e50;
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      .footer-title {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .footer-links {
+        margin: 20px 0;
+      }
+
+      .footer-links a {
+        color: #ff8c42;
+        text-decoration: none;
+        margin: 0 15px;
+      }
+
+      .footer-text {
+        color: #bdc3c7;
+        font-size: 14px;
+        margin-top: 20px;
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 10px;
+        }
+        .container {
+          border-radius: 0;
+        }
+        .header,
+        .content,
+        .footer {
+          padding: 25px 20px;
+        }
+        .btn {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class='container'>
+      <!-- Header -->
+      <div class='header'>
+        <div class='logo'>🍽️ Goofeat</div>
+        <div class='tagline'>Mangez mieux, gaspillez moins</div>
+      </div>
+
+      <!-- Content -->
+      <div class='content'>
+        <h1 class='title'>Bienvenue sur Goofeat !</h1>
+
+        <p class='text'>Bonjour
+          <span class='highlight'>{{firstName}}</span>,</p>
+
+        <p class='text'>Merci de rejoindre Goofeat ! Nous sommes ravis de vous
+          avoir dans notre communauté.</p>
+
+        <p class='text'>Votre compte a été créé avec succès avec l'adresse email
+          :
+          <span class='highlight'>{{email}}</span></p>
+
+        <div class='features'>
+          <h3>Commencez votre aventure :</h3>
+          <div class='feature'>Gérez votre garde-manger intelligemment</div>
+          <div class='feature'>Recevez des alertes avant expiration</div>
+          <div class='feature'>Découvrez des recettes adaptées</div>
+          <div class='feature'>Réduisez le gaspillage alimentaire</div>
+        </div>
+
+        <div class='cta'>
+          <a href='{{frontendUrl}}/dashboard' class='btn'>Commencer maintenant</a>
+        </div>
+
+        <div class='info-box'>
+          <strong>💡 Astuce :</strong>
+          Téléchargez notre application mobile pour une expérience optimale et
+          des notifications en temps réel !
+        </div>
+
+        <p class='text'>Nous vous avons également envoyé un email de
+          vérification. Veuillez cliquer sur le lien dans cet email pour activer
+          complètement votre compte.</p>
+      </div>
+
+      <!-- Footer -->
+      <div class='footer'>
+        <div class='footer-title'>Goofeat</div>
+        <p>Votre assistant intelligent pour gérer votre garde-manger</p>
+
+        <div class='footer-links'>
+          <a href='{{frontendUrl}}/contact'>Support</a>
+          <a href='{{frontendUrl}}/privacy'>Confidentialité</a>
+          <a href='{{frontendUrl}}/terms'>Conditions</a>
+        </div>
+
+        <div class='footer-text'>
+          <p>Si vous n'êtes pas à l'origine de cette action, vous pouvez ignorer
+            cet email en toute sécurité.</p>
+          <p>© Goofeat - {{currentYear}}</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
