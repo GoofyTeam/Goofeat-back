@@ -79,6 +79,10 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   fcmToken?: string | null;
 
+  @Column({ default: false })
+  @Expose({ groups: ['user:read', 'user:admin'] })
+  isEmailVerified: boolean;
+
   @Column({
     type: 'simple-array',
     enum: Role,
