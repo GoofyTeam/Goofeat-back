@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -19,14 +18,9 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-
-    const user = this.usersRepository.create({
-      ...createUserDto,
-      password: hashedPassword,
-    });
-
-    return this.usersRepository.save(user);
+    const user = this.usersRepository.create(createUserDto);
+    const savedUser = await this.usersRepository.save(user);
+    return savedUser;
   }
 
   async findAll(): Promise<User[]> {
@@ -88,6 +82,7 @@ export class UsersService {
         'notificationSettings',
         'fcmToken',
         'roles',
+        'isEmailVerified',
       ],
     });
   }
