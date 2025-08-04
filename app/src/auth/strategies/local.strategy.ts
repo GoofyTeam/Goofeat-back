@@ -31,6 +31,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       if (remainingAttempts > 0) {
         throw new UnauthorizedException(
           `Identifiants invalides. Il vous reste ${remainingAttempts} tentative(s).`,
+          error instanceof Error ? error.message : undefined,
         );
       } else {
         // Le garde LoginThrottlingGuard bloquera la prochaine tentative
