@@ -13,6 +13,7 @@ import { LoggerMiddleware } from './common/logger/logger.middleware';
 import { LoggerModule } from './common/logger/logger.module';
 import { SerializerModule } from './common/serializer/serializer.module';
 import { UnitsModule } from './common/units/units.module';
+import { HouseholdModule } from './households/household.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProductModule } from './products/product.module';
 import { RecipeModule } from './recipes/recipe.module';
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module';
     ProductModule,
     RecipeModule,
     StockModule,
+    HouseholdModule,
     NotificationsModule,
     EventEmitterModule.forRoot(),
     ElasticsearchModule,

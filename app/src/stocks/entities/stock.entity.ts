@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { Unit } from 'src/common/units/unit.enums';
+import { Household } from 'src/households/entities/household.entity';
 import { Product } from 'src/products/entities/product.entity';
 import { User } from 'src/users/entity/user.entity';
 import {
@@ -31,6 +32,13 @@ export class Stock {
   @Expose({ groups: ['stock:read'] })
   @Type(() => User)
   user: User;
+
+  @ManyToOne(() => Household, (household) => household.stocks, {
+    nullable: true,
+  })
+  @Expose({ groups: ['stock:read'] })
+  @Type(() => Household)
+  household?: Household;
 
   @ApiProperty({
     description: 'Quantité en stock',
@@ -78,4 +86,18 @@ export class Stock {
   @UpdateDateColumn()
   @Expose({ groups: ['stock:read'] })
   updatedAt: Date;
+
+  @ApiProperty({
+    description: 'Membre du foyer qui a ajouté ce stock',
+  })
+  @Column({ type: 'uuid', nullable: true })
+  @Expose({ groups: ['stock:read'] })
+  addedByMemberId?: string;
+
+  @ApiProperty({
+    description: 'Dernière mise à jour effectuée par quel membre',
+  })
+  @Column({ type: 'uuid', nullable: true })
+  @Expose({ groups: ['stock:read'] })
+  lastUpdatedByMemberId?: string;
 }
