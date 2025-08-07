@@ -43,7 +43,12 @@ export class StockService {
       createStockDto.dlc = add(new Date(), { days: defaultDlcDays });
     }
 
-    const stock = this.stockRepository.create({ ...createStockDto, user });
+    const { productId, ...stockData } = createStockDto;
+    const stock = this.stockRepository.create({
+      ...stockData,
+      user,
+      product,
+    });
     const savedStock = await this.stockRepository.save(stock);
 
     const stockWithRelations = await this.stockRepository.findOne({
@@ -66,7 +71,7 @@ export class StockService {
     user: User,
     filterStockDto: FilterStockDto,
   ): Promise<{ data: Stock[]; total: number; page: number; limit: number }> {
-    const { page, limit, search } = filterStockDto;
+    const { page = 1, limit = 10, search } = filterStockDto;
     const skip = (page - 1) * limit;
 
     const where: FindOptionsWhere<Stock> = { user: { id: user.id } };
@@ -77,7 +82,7 @@ export class StockService {
 
     const [data, total] = await this.stockRepository.findAndCount({
       where,
-      relations: ['product', 'category'],
+      relations: ['product'],
       take: limit,
       skip: skip,
       order: {
@@ -91,7 +96,7 @@ export class StockService {
   async findOne(id: string, currentUser: User): Promise<Stock> {
     const stock = await this.stockRepository.findOne({
       where: { id },
-      relations: ['user'],
+      relations: ['user', 'product'],
     });
     if (!stock) {
       throw new NotFoundException(`Stock avec l'ID ${id} non trouvé`);

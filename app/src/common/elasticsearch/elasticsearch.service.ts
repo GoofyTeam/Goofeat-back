@@ -172,6 +172,14 @@ export class ElasticsearchService implements OnModuleInit {
     preferences: UserPreferences,
     stocks: Stock[],
   ): Promise<RecipeSearchResult> {
+    // Si pas de stock, retourner des résultats vides
+    if (stocks.length === 0) {
+      return {
+        total: 0,
+        results: [],
+      };
+    }
+
     const stocksMap = this.createStocksMap(stocks);
     const dlcMap = this.createDlcMap(stocks);
 
@@ -183,27 +191,7 @@ export class ElasticsearchService implements OnModuleInit {
             bool: {
               must: [
                 {
-                  script: {
-                    script: {
-                      lang: 'painless',
-                      source: `
-                        if (params._source.ingredients == null || params._source.ingredients.isEmpty()) {
-                          return true;
-                        }
-                        for (def ingredient : params._source.ingredients) {
-                          if (ingredient.productId == null || !params.stocks.containsKey(ingredient.productId)) {
-                            return false;
-                          }
-                          def stock = params.stocks[ingredient.productId];
-                          if (stock.baseUnit != ingredient.baseUnit || stock.normalizedQuantity < ingredient.normalizedQuantity) {
-                            return false;
-                          }
-                        }
-                        return true;
-                      `,
-                      params: { stocks: stocksMap },
-                    },
-                  },
+                  match_all: {}, // Récupérer toutes les recettes
                 },
               ],
               should: (preferences.preferredCategories || []).map(
@@ -219,30 +207,48 @@ export class ElasticsearchService implements OnModuleInit {
               minimum_should_match: 0,
             },
           },
-          functions: [this._buildDlcScoreFunction(dlcMap)],
+          functions: [
+            // Score de disponibilité (doit être à 1.0 pour être réalisable)
+            this._buildAvailabilityScoreFunction(stocksMap),
+            // Score de DLC (important pour l'anti-gaspillage)
+            this._buildDlcScoreFunction(dlcMap),
+          ],
           score_mode: 'sum',
-          boost_mode: 'multiply',
+          boost_mode: 'replace',
+          min_score: 1.5, // Score minimum pour considérer une recette comme réalisable
         },
       },
+      sort: [{ _score: { order: 'desc' } }],
+      size: 50,
     };
 
-    const result = await this.client.search<RecipeSource>(searchRequest);
+    try {
+      const result = await this.client.search<RecipeSource>(searchRequest);
 
-    const recipes: ScoredRecipe[] = result.hits.hits
-      .filter((hit) => hit._id && hit._source)
-      .map((hit) => ({
-        ...(hit._source as RecipeTemp),
-        id: hit._id!,
-        score: hit._score || 0,
-      }));
+      // Filtrer pour ne garder que les recettes avec un availability score parfait
+      const recipes: ScoredRecipe[] = result.hits.hits
+        .filter((hit) => hit._id && hit._source && (hit._score || 0) >= 1.5)
+        .map((hit) => ({
+          ...(hit._source as RecipeTemp),
+          id: hit._id!,
+          score: hit._score || 0,
+        }));
 
-    return {
-      total:
-        typeof result.hits.total === 'number'
-          ? result.hits.total
-          : (result.hits.total?.value ?? 0),
-      results: recipes,
-    };
+      return {
+        total: recipes.length,
+        results: recipes,
+      };
+    } catch (error) {
+      this.logger.error(
+        'Erreur lors de la recherche des recettes réalisables:',
+        error,
+      );
+      // En cas d'erreur, retourner une liste vide plutôt que de planter
+      return {
+        total: 0,
+        results: [],
+      };
+    }
   }
 
   async discoverRecipes(
@@ -379,7 +385,7 @@ export class ElasticsearchService implements OnModuleInit {
                       }
                       long today = new Date().getTime();
                       int dlcCount = 0;
-                      for (def ingredient : params._source.ingredients) {
+                      for (def ingredient : ctx._source.ingredients) {
                         if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
                           long dlcDate = ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
                           long diff = dlcDate - today;
@@ -405,12 +411,12 @@ export class ElasticsearchService implements OnModuleInit {
                 script: {
                   source: `
                       double availabilityScore = 0;
-                      if (params._source.ingredients == null || params._source.ingredients.isEmpty()) {
+                      if (ctx._source.ingredients == null || ctx._source.ingredients.isEmpty()) {
                         return 1.0; // No ingredients required, perfect availability
                       }
-                      int totalIngredients = params._source.ingredients.size();
+                      int totalIngredients = ctx._source.ingredients.size();
                       int availableIngredients = 0;
-                      for (def ingredient : params._source.ingredients) {
+                      for (def ingredient : ctx._source.ingredients) {
                         if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
                            def stock = params.stocks[ingredient.productId];
                            if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
@@ -471,7 +477,7 @@ export class ElasticsearchService implements OnModuleInit {
             if (params.dlc == null || params.dlc.isEmpty()) { return 0; }
             long today = new Date().getTime();
             int dlcCount = 0;
-            for (def ingredient : params._source.ingredients) {
+            for (def ingredient : ctx._source.ingredients) {
               if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
                 long dlcDate = java.time.ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
                 long diff = dlcDate - today;
@@ -502,12 +508,12 @@ export class ElasticsearchService implements OnModuleInit {
         script: {
           source: `
             double availabilityScore = 0;
-            if (params._source.ingredients == null || params._source.ingredients.isEmpty()) {
+            if (ctx._source.ingredients == null || ctx._source.ingredients.isEmpty()) {
               return 1.0; // No ingredients required, perfect availability
             }
-            int totalIngredients = params._source.ingredients.size();
+            int totalIngredients = ctx._source.ingredients.size();
             int availableIngredients = 0;
-            for (def ingredient : params._source.ingredients) {
+            for (def ingredient : ctx._source.ingredients) {
               if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
                  def stock = params.stocks[ingredient.productId];
                  if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {

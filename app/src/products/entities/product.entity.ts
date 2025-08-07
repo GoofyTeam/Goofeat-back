@@ -3,12 +3,15 @@ import { Expose, Type } from 'class-transformer';
 import { Unit } from 'src/common/units/unit.enums';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
+import { User } from 'src/users/entity/user.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   JoinTable,
   ManyToMany,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -18,7 +21,14 @@ import {
 @Entity('products')
 export class Product {
   @Expose({
-    groups: ['default', 'product:read', 'product:list', 'product:barcode-min'],
+    groups: [
+      'default',
+      'product:read',
+      'product:list',
+      'product:barcode-min',
+      'stock:list',
+      'stock:read',
+    ],
   })
   @ApiProperty({
     description: 'Identifiant unique du produit (UUID)',
@@ -39,7 +49,14 @@ export class Product {
   code: string;
 
   @Expose({
-    groups: ['default', 'product:read', 'product:list', 'product:barcode-min'],
+    groups: [
+      'default',
+      'product:read',
+      'product:list',
+      'product:barcode-min',
+      'stock:list',
+      'stock:read',
+    ],
   })
   @ApiProperty({
     description: 'Nom du produit',
@@ -53,7 +70,7 @@ export class Product {
     description: 'Description du produit',
     example: 'Pâte à tartiner aux noisettes et au cacao',
   })
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   description: string;
 
   @Expose({
@@ -64,7 +81,7 @@ export class Product {
     example:
       'https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.633.400.jpg',
   })
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   imageUrl: string;
 
   @Expose({ groups: ['product:read', 'admin'] })
@@ -131,6 +148,20 @@ export class Product {
   @Column({ type: 'float', nullable: true })
   packagingSize?: number;
 
+  @Expose({ groups: ['product:read', 'admin'] })
+  @ApiProperty({
+    description: 'Utilisateur créateur (pour produits manuels uniquement)',
+    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+  })
+  @Column({ type: 'uuid', nullable: true })
+  createdBy?: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'createdBy' })
+  @Expose({ groups: ['product:read', 'admin'] })
+  @Type(() => User)
+  creator?: User;
+
   @ManyToMany(() => Ingredient, (ingredient) => ingredient.products, {
     eager: true,
     cascade: true,
@@ -140,7 +171,18 @@ export class Product {
     joinColumn: { name: 'productId', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'ingredientId', referencedColumnName: 'id' },
   })
-  @Expose({ groups: ['product:read', 'product:barcode-min'] })
+  @Expose({ groups: ['product:read', 'product:barcode-min', 'stock:read'] })
   @Type(() => Ingredient)
   ingredients: Ingredient[];
+
+  @Expose({ groups: ['product:read', 'product:list'] })
+  @ApiProperty({
+    description:
+      'Type de produit (manual=créé par utilisateur, barcode=OpenFoodFacts)',
+    example: 'manual',
+    enum: ['manual', 'barcode'],
+  })
+  get productType(): 'manual' | 'barcode' {
+    return this.code ? 'barcode' : 'manual';
+  }
 }

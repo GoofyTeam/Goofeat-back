@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
+import { FilterUserDto } from './dto/filter-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entity/user.entity';
 import { Role } from './enums/role.enum';
@@ -23,8 +24,40 @@ export class UsersService {
     return savedUser;
   }
 
-  async findAll(): Promise<User[]> {
-    return this.usersRepository.find();
+  async findAll(filterDto: Partial<FilterUserDto> = {}): Promise<User[]> {
+    const queryBuilder = this.usersRepository.createQueryBuilder('user');
+
+    if (filterDto.search) {
+      queryBuilder.andWhere(
+        '(LOWER(user.email) LIKE LOWER(:search) OR LOWER(user.firstName) LIKE LOWER(:search) OR LOWER(user.lastName) LIKE LOWER(:search))',
+        { search: `%${filterDto.search}%` },
+      );
+    }
+
+    if (filterDto.role) {
+      queryBuilder.andWhere(':role = ANY(user.roles)', {
+        role: filterDto.role,
+      });
+    }
+
+    if (filterDto.isEmailVerified !== undefined) {
+      queryBuilder.andWhere('user.isEmailVerified = :isEmailVerified', {
+        isEmailVerified: filterDto.isEmailVerified,
+      });
+    }
+
+    if (filterDto.limit) {
+      queryBuilder.take(filterDto.limit);
+    }
+    if (filterDto.offset) {
+      queryBuilder.skip(filterDto.offset);
+    }
+
+    // Tri par date de création
+    const sortOrder = filterDto.sortByCreatedAt === 'asc' ? 'ASC' : 'DESC';
+    queryBuilder.orderBy('user.createdAt', sortOrder);
+
+    return queryBuilder.getMany();
   }
 
   async findOne(id: string): Promise<User> {

@@ -1,0 +1,18 @@
+{
+  "lastProcessedId": "2751416a-a5e8-44b7-975d-31812ded0afa",
+  "totalProcessed": 155,
+  "totalUpdated": 151,
+  "totalSkipped": 4,
+  "totalErrors": 0,
+  "config": {
+    "batchSize": 100,
+    "maxRecipes": 2000,
+    "onlyMissingInstructions": true,
+    "saveProgressFile": "./spoonacular-instructions-progress.json"
+  },
+  "timestamp": "2025-08-10T09:19:17.006Z",
+  "errors": [
+    "Processus interrompu: Quota API épuisé",
+    "Erreur fatale: QUOTA_EXCEEDED"
+  ]
+}
