@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -14,6 +15,7 @@ import {
   ApiBody,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -22,6 +24,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
+import { FilterUserDto } from './dto/filter-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entity/user.entity';
 import { Role } from './enums/role.enum';
@@ -55,7 +58,10 @@ export class UsersController {
   @Get()
   @Roles(Role.ADMIN)
   @ApiOperation({
-    summary: 'Récupérer tous les utilisateurs (Admin uniquement)',
+    summary:
+      'Récupérer tous les utilisateurs avec filtres avancés (Admin uniquement)',
+    description:
+      'Liste paginée des utilisateurs avec recherche par email/nom, filtre par rôle et statut de vérification',
   })
   @ApiResponse({
     status: 200,
@@ -66,9 +72,50 @@ export class UsersController {
     status: 403,
     description: 'Accès refusé - Réservé aux admins',
   })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Recherche par email, prénom ou nom',
+    example: 'john@example.com',
+  })
+  @ApiQuery({
+    name: 'role',
+    required: false,
+    enum: Role,
+    description: 'Filtrer par rôle utilisateur',
+    example: Role.USER,
+  })
+  @ApiQuery({
+    name: 'isEmailVerified',
+    required: false,
+    type: Boolean,
+    description: 'Filtrer par statut de vérification email',
+    example: true,
+  })
+  @ApiQuery({
+    name: 'sortByCreatedAt',
+    required: false,
+    enum: ['desc', 'asc'],
+    description: 'Trier par date de création',
+    example: 'desc',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Nombre maximum de résultats',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    type: Number,
+    description: 'Décalage pour la pagination',
+    example: 0,
+  })
   @SerializationGroups('user:list')
-  findAll(): Promise<User[]> {
-    return this.usersService.findAll();
+  findAll(@Query() filterDto: Partial<FilterUserDto>): Promise<User[]> {
+    return this.usersService.findAll(filterDto);
   }
 
   @Get(':id')

@@ -66,7 +66,7 @@ export class StockService {
     user: User,
     filterStockDto: FilterStockDto,
   ): Promise<{ data: Stock[]; total: number; page: number; limit: number }> {
-    const { page, limit, search } = filterStockDto;
+    const { page = 1, limit = 10, search } = filterStockDto;
     const skip = (page - 1) * limit;
 
     const where: FindOptionsWhere<Stock> = { user: { id: user.id } };
