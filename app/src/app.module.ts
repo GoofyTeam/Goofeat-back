@@ -8,7 +8,9 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CategoryModule } from './categories/category.module';
 import { DatabaseModule } from './common/database/database.module';
+import { IngredientsModule } from './ingredients/ingredients.module';
 import { ElasticsearchModule } from './common/elasticsearch/elasticsearch.module';
+import { ExternalApisModule } from './common/external-apis/external-apis.module';
 import { LoggerMiddleware } from './common/logger/logger.middleware';
 import { LoggerModule } from './common/logger/logger.module';
 import { SerializerModule } from './common/serializer/serializer.module';
@@ -32,6 +34,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     AuthModule,
     CategoryModule,
+    IngredientsModule,
     ProductModule,
     RecipeModule,
     StockModule,
@@ -39,6 +42,7 @@ import { UsersModule } from './users/users.module';
     NotificationsModule,
     EventEmitterModule.forRoot(),
     ElasticsearchModule,
+    ExternalApisModule,
     UnitsModule,
     MailerModule.forRootAsync({
       useFactory: () => ({

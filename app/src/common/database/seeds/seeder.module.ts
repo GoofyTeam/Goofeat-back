@@ -11,11 +11,15 @@ import { ProductModule } from 'src/products/product.module';
 import { RecipeIngredient } from 'src/recipes/entities/recipe-ingredient.entity';
 import { Recipe } from 'src/recipes/entities/recipe.entity';
 import { RecipeModule } from 'src/recipes/recipe.module';
+import { Stock } from 'src/stocks/entities/stock.entity';
+import { User } from 'src/users/entity/user.entity';
+import { UsersModule } from 'src/users/users.module';
 import { DatabaseModule } from '../database.module';
 import { CategorySeedService } from './category.seed';
 import { ProductSeedService } from './product.seed';
 import { RecipeSeedService } from './recipe.seed';
 import { SeederService } from './seeder.service';
+import { UserStockSeedService } from './user-stock.seed';
 
 @Module({
   imports: [
@@ -26,11 +30,14 @@ import { SeederService } from './seeder.service';
       Product,
       Recipe,
       RecipeIngredient,
+      Stock,
+      User,
     ]),
     CategoryModule,
     IngredientsModule,
     ProductModule,
     RecipeModule,
+    UsersModule,
     EventEmitterModule,
     ElasticsearchModule,
   ],
@@ -39,7 +46,8 @@ import { SeederService } from './seeder.service';
     ProductSeedService,
     RecipeSeedService,
     SeederService,
+    UserStockSeedService,
   ],
-  exports: [SeederService],
+  exports: [SeederService, UserStockSeedService],
 })
 export class SeederModule {}

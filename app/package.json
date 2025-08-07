@@ -23,11 +23,14 @@
     "test:search": "ts-node -r tsconfig-paths/register src/test-search.ts",
     "test:discover": "TS_NODE_CACHE=false ts-node -r tsconfig-paths/register src/test-discover.ts",
     "import:ingredients:off": "ts-node -r tsconfig-paths/register src/manual-import-ingredients-off.ts",
+    "seed:spoonacular:instructions": "ts-node -r tsconfig-paths/register src/common/external-apis/scripts/seed-spoonacular-instructions.script.ts",
+    "seed:user-stock": "ts-node -r tsconfig-paths/register src/seed-user-stock.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:create": "yarn typeorm migration:create src/migrations/SeedData",
     "migration:generate": "yarn typeorm migration:generate -d src/common/database/data-source.ts",
     "migration:run": "yarn typeorm migration:run -d src/common/database/data-source.ts",
-    "migration:revert": "yarn typeorm migration:revert -d src/common/database/data-source.ts"
+    "migration:revert": "yarn typeorm migration:revert -d src/common/database/data-source.ts",
+    "cli": "ts-node -r tsconfig-paths/register src/main-cli.ts"
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.18.2",
@@ -52,6 +55,7 @@
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
+    "@types/pg": "^8.15.5",
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
@@ -73,7 +77,7 @@
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
-    "pg": "^8.16.0",
+    "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "request": "^2.88.2",
     "rxjs": "^7.8.1",

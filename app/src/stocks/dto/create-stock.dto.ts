@@ -79,14 +79,6 @@ export class CreateStockDto {
   categoryId?: string;
 
   @ApiProperty({
-    description: "Identifiant de l'utilisateur propriétaire du stock",
-    example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-  })
-  @IsNotEmpty()
-  @IsUUID()
-  userId: string;
-
-  @ApiProperty({
     description: 'Quantité en stock',
     example: 1.5,
     minimum: 0,

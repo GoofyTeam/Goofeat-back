@@ -1,7 +1,16 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
+import { User } from 'src/users/entity/user.entity';
+import { In, Repository } from 'typeorm';
 import { CreateProductDto } from './dto/create-product.dto';
+import { FilterProductDto, ProductTypeFilter } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
 import { ProductDataService } from './lib/product-data.interface';
@@ -11,13 +20,40 @@ export class ProductService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(Ingredient)
+    private readonly ingredientRepository: Repository<Ingredient>,
     @Inject('PRODUCT_DATA_SERVICE')
     private readonly productDataService: ProductDataService,
   ) {}
 
-  async create(createProductDto: CreateProductDto) {
-    // Création d'un nouveau produit
-    const product = this.productRepository.create(createProductDto);
+  async create(createProductDto: CreateProductDto, user?: User) {
+    // Gérer les ingrédients si fournis
+    let ingredients: Ingredient[] = [];
+    if (
+      createProductDto.ingredients &&
+      createProductDto.ingredients.length > 0
+    ) {
+      ingredients = await this.ingredientRepository.find({
+        where: { id: In(createProductDto.ingredients) },
+      });
+      if (ingredients.length !== createProductDto.ingredients.length) {
+        throw new NotFoundException(
+          "Certains ingrédients spécifiés n'ont pas été trouvés",
+        );
+      }
+    }
+
+    // Préparer les données du produit sans le champ ingredients
+    const { ingredients: _, ...productData } = createProductDto;
+
+    // Associer à l'utilisateur si c'est un produit manuel (sans code-barres)
+    if (!createProductDto.code && user?.id) {
+      (productData as any).createdBy = user.id;
+    }
+
+    const product = this.productRepository.create(productData);
+    product.ingredients = ingredients;
+
     return this.productRepository.save(product);
   }
 
@@ -57,8 +93,53 @@ export class ProductService {
     }
   }
 
-  async findAll() {
-    return this.productRepository.find();
+  async findAll(filterDto: Partial<FilterProductDto> = {}, user?: User) {
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.creator', 'creator')
+      .leftJoinAndSelect('product.ingredients', 'ingredients');
+
+    // Recherche par nom
+    if (filterDto.search) {
+      queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:search)', {
+        search: `%${filterDto.search}%`,
+      });
+    }
+
+    // Recherche par code-barres exact
+    if (filterDto.code) {
+      queryBuilder.andWhere('product.code = :code', { code: filterDto.code });
+    }
+
+    // Filtrer par type de produit
+    if (filterDto.type && filterDto.type !== ProductTypeFilter.ALL) {
+      if (filterDto.type === ProductTypeFilter.BARCODE) {
+        queryBuilder.andWhere('product.code IS NOT NULL');
+      } else if (filterDto.type === ProductTypeFilter.MANUAL) {
+        queryBuilder.andWhere('product.code IS NULL');
+      }
+    }
+
+    // Filtrer uniquement les produits de l'utilisateur (pour les produits manuels)
+    if (filterDto.onlyMyProducts && user) {
+      queryBuilder.andWhere(
+        '(product.createdBy = :userId OR product.code IS NOT NULL)',
+        { userId: user.id },
+      );
+    }
+
+    // Pagination
+    if (filterDto.limit) {
+      queryBuilder.take(filterDto.limit);
+    }
+    if (filterDto.offset) {
+      queryBuilder.skip(filterDto.offset);
+    }
+
+    // Tri par défaut
+    queryBuilder.orderBy('product.createdAt', 'DESC');
+
+    return queryBuilder.getMany();
   }
 
   async findOne(id: string) {
@@ -80,16 +161,34 @@ export class ProductService {
     return this.productDataService.searchProductsByName(name, limit);
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto) {
+  async update(id: string, updateProductDto: UpdateProductDto, user?: User) {
     const product = await this.findOne(id);
 
-    Object.assign(product, updateProductDto);
+    // Vérifier les permissions pour les produits manuels
+    if (product.createdBy && user) {
+      if (product.createdBy !== user.id) {
+        throw new ForbiddenException(
+          'Vous ne pouvez modifier que vos propres produits',
+        );
+      }
+    }
 
+    Object.assign(product, updateProductDto);
     return this.productRepository.save(product);
   }
 
-  async remove(id: string) {
+  async remove(id: string, user?: User) {
     const product = await this.findOne(id);
+
+    // Vérifier les permissions pour les produits manuels
+    if (product.createdBy && user) {
+      if (product.createdBy !== user.id) {
+        throw new ForbiddenException(
+          'Vous ne pouvez supprimer que vos propres produits',
+        );
+      }
+    }
+
     return this.productRepository.remove(product);
   }
 }

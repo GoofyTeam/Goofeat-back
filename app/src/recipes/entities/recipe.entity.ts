@@ -11,6 +11,10 @@ import {
 import { RecipeIngredient } from './recipe-ingredient.entity';
 
 @Entity('recipes')
+// @Index('UQ_recipe_external', ['externalId', 'externalSource'], {
+//   unique: true,
+//   where: 'externalSource != manual',
+// })
 export class Recipe {
   @Expose({ groups: ['default', 'recipe:read', 'recipe:list'] })
   @ApiProperty({
@@ -94,6 +98,86 @@ export class Recipe {
   })
   @Column('text', { array: true, nullable: true })
   categories: string[];
+
+  // Métadonnées de traçabilité pour les recettes externes
+  @Expose({ groups: ['recipe:read', 'admin'] })
+  @ApiProperty({
+    description: 'Identifiant externe (ex: Spoonacular ID)',
+    example: 'spoonacular_634561',
+    required: false,
+  })
+  @Column({ type: 'varchar', nullable: true })
+  externalId?: string;
+
+  @Expose({ groups: ['recipe:read', 'admin'] })
+  @ApiProperty({
+    description: 'Source externe de la recette',
+    example: 'spoonacular',
+    enum: ['manual', 'spoonacular', 'marmiton'],
+    required: false,
+  })
+  @Column({ type: 'varchar', default: 'manual' })
+  externalSource: string = 'manual';
+
+  @Expose({ groups: ['recipe:read', 'recipe:list', 'admin'] })
+  @ApiProperty({
+    description: "Pourcentage d'ingrédients mappés avec succès",
+    example: 85.7,
+    minimum: 0,
+    maximum: 100,
+    required: false,
+  })
+  @Column({ type: 'float', nullable: true })
+  completenessScore?: number;
+
+  @Expose({ groups: ['recipe:read', 'recipe:list'] })
+  @ApiProperty({
+    description: 'Indique si la recette contient tous les ingrédients mappés',
+    example: true,
+    required: false,
+  })
+  @Column({ type: 'boolean', default: true })
+  isComplete: boolean = true;
+
+  @Expose({ groups: ['recipe:read', 'admin'] })
+  @ApiProperty({
+    description: "Liste des ingrédients non mappés lors de l'import",
+    example: ['heavy cream', 'vanilla extract'],
+    type: [String],
+    required: false,
+  })
+  @Column({ type: 'jsonb', nullable: true })
+  missingIngredients?: string[];
+
+  @Expose({ groups: ['admin', 'debug'] })
+  @ApiProperty({
+    description: 'Données brutes de la source externe',
+    example: { spoonacularId: 634561, originalTitle: 'Classic Apple Pie' },
+    required: false,
+  })
+  @Column({ type: 'jsonb', nullable: true })
+  externalData?: any;
+
+  @Expose({ groups: ['default', 'recipe:read'] })
+  @ApiProperty({
+    description: 'Instructions étape par étape pour préparer la recette',
+    example: [
+      {
+        name: 'Préparation',
+        steps: [
+          {
+            number: 1,
+            step: 'Préchauffez le four à 180°C.',
+            ingredients: ['four'],
+            equipment: ['four'],
+          },
+        ],
+      },
+    ],
+    required: false,
+  })
+  @Column({ type: 'jsonb', nullable: true })
+  instructions?: any[];
 
   @Expose({ groups: ['default', 'recipe:read'] })
   @ApiProperty({

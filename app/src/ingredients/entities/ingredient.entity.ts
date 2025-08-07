@@ -9,7 +9,6 @@ import {
   JoinColumn,
   ManyToMany,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -29,7 +28,7 @@ export class Ingredient {
    */
   @ApiProperty({ description: 'Nom français', example: "Extrait d'ail" })
   @Column({ type: 'varchar', nullable: false })
-  @Expose({ groups: ['ingredient:read'] })
+  @Expose({ groups: ['ingredient:read', 'stock:read'] })
   nameFr: string;
 
   /**
@@ -37,7 +36,7 @@ export class Ingredient {
    */
   @ApiProperty({ description: 'Nom anglais', example: 'Garlic extract' })
   @Column({ type: 'varchar', nullable: false })
-  @Expose({ groups: ['ingredient:read'] })
+  @Expose({ groups: ['ingredient:read', 'stock:read'] })
   nameEn: string;
 
   /**

@@ -75,36 +75,6 @@ export class RecipeController {
     return this.recipeService.findAll(query);
   }
 
-  @Get(':id')
-  @SerializationGroups('recipe:read')
-  @ApiOperation({ summary: 'Récupérer une recette par son ID' })
-  @ApiResponse({ status: 200, description: 'Recette trouvée' })
-  @ApiResponse({ status: 404, description: 'Recette non trouvée' })
-  findOne(@Param('id') id: string) {
-    return this.recipeService.findOne(id);
-  }
-
-  @Put(':id')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @SerializationGroups('recipe:read')
-  @ApiOperation({ summary: 'Mettre à jour une recette' })
-  @ApiResponse({ status: 200, description: 'Recette mise à jour avec succès' })
-  @ApiResponse({ status: 404, description: 'Recette non trouvée' })
-  update(@Param('id') id: string, @Body() updateRecipeDto: UpdateRecipeDto) {
-    return this.recipeService.update(id, updateRecipeDto);
-  }
-
-  @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Supprimer une recette' })
-  @ApiResponse({ status: 200, description: 'Recette supprimée avec succès' })
-  @ApiResponse({ status: 404, description: 'Recette non trouvée' })
-  remove(@Param('id') id: string) {
-    return this.recipeService.remove(id);
-  }
-
   @Get('/search')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
@@ -142,11 +112,21 @@ export class RecipeController {
         userPreferences = user.preferences;
       }
     }
-    // The query parameter is ignored for now, focusing on discovery
-    return this.elasticsearchService.discoverRecipes(
-      userPreferences,
-      userStocks,
-    );
+    // 🔧 CORRECTION: Utiliser searchRecipes quand un query est fourni, sinon discovery
+    if (query && query.trim().length > 0) {
+      this.logger.log(`Recherche textuelle avec query: "${query}"`);
+      return this.elasticsearchService.searchRecipes(
+        query.trim(),
+        userPreferences,
+        userStocks,
+      );
+    } else {
+      this.logger.log('Découverte intelligente basée sur le stock');
+      return this.elasticsearchService.discoverRecipes(
+        userPreferences,
+        userStocks,
+      );
+    }
   }
 
   @Get('/makeable')
@@ -171,5 +151,35 @@ export class RecipeController {
       userPreferences,
       userStocks,
     );
+  }
+
+  @Get(':id')
+  @SerializationGroups('recipe:read')
+  @ApiOperation({ summary: 'Récupérer une recette par son ID' })
+  @ApiResponse({ status: 200, description: 'Recette trouvée' })
+  @ApiResponse({ status: 404, description: 'Recette non trouvée' })
+  findOne(@Param('id') id: string) {
+    return this.recipeService.findOne(id);
+  }
+
+  @Put(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @SerializationGroups('recipe:read')
+  @ApiOperation({ summary: 'Mettre à jour une recette' })
+  @ApiResponse({ status: 200, description: 'Recette mise à jour avec succès' })
+  @ApiResponse({ status: 404, description: 'Recette non trouvée' })
+  update(@Param('id') id: string, @Body() updateRecipeDto: UpdateRecipeDto) {
+    return this.recipeService.update(id, updateRecipeDto);
+  }
+
+  @Delete(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Supprimer une recette' })
+  @ApiResponse({ status: 200, description: 'Recette supprimée avec succès' })
+  @ApiResponse({ status: 404, description: 'Recette non trouvée' })
+  remove(@Param('id') id: string) {
+    return this.recipeService.remove(id);
   }
 }

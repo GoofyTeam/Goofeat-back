@@ -1,8 +1,9 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { IngredientsModule } from 'src/ingredients/ingredients.module';
 import { ElasticsearchModule } from 'src/common/elasticsearch/elasticsearch.module';
+import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
+import { IngredientsModule } from 'src/ingredients/ingredients.module';
 import { Product } from './entities/product.entity';
 import { MockProductService } from './lib/mock-product.service';
 import { OpenFoodFactsService } from './lib/openfoodfacts.service';
@@ -11,7 +12,7 @@ import { ProductService } from './product.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product]),
+    TypeOrmModule.forFeature([Product, Ingredient]),
     HttpModule,
     ElasticsearchModule,
     forwardRef(() => IngredientsModule),
