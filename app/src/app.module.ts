@@ -68,7 +68,7 @@ import { UsersModule } from './users/users.module';
       }),
     }),
   ],
-  controllers: process.env.NODE_ENV !== 'production' ? [AppController] : [],
+  // controllers: process.env.NODE_ENV !== 'production' ? [AppController] : [],
   providers: [AppService],
 })
 export class AppModule implements NestModule {
