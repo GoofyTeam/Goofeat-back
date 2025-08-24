@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { UserPreferences } from '../interfaces/user-preferences.interface';
 
-export class UpdateProfileDto {
+export class UpdateProfileV1Dto {
   @ApiProperty({
     description: 'Prénom',
     example: 'Jean',

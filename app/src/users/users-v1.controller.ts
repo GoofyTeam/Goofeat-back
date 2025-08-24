@@ -30,15 +30,19 @@ import { User } from './entity/user.entity';
 import { Role } from './enums/role.enum';
 import { UsersService } from './users.service';
 
-@ApiTags('Utilisateurs')
+@ApiTags('Utilisateurs V1 (Legacy)')
 @ApiBearerAuth()
-@Controller({ path: 'users', version: '2' })
+@Controller({ path: 'users', version: '1' })
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-export class UsersController {
+export class UsersV1Controller {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Créer un nouvel utilisateur (Admin uniquement)' })
+  @ApiOperation({
+    summary: 'Créer un nouvel utilisateur (Admin uniquement)',
+    description:
+      '⚠️ API V1 - Deprecated. Utilisez la V2 pour les nouvelles intégrations.',
+  })
   @ApiBody({ type: CreateUserDto })
   @ApiResponse({
     status: 201,
@@ -61,7 +65,7 @@ export class UsersController {
     summary:
       'Récupérer tous les utilisateurs avec filtres avancés (Admin uniquement)',
     description:
-      'Liste paginée des utilisateurs avec recherche par email/nom, filtre par rôle et statut de vérification',
+      '⚠️ API V1 - Deprecated. Liste paginée des utilisateurs avec recherche par email/nom, filtre par rôle et statut de vérification',
   })
   @ApiResponse({
     status: 200,
@@ -119,7 +123,11 @@ export class UsersController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Récupérer un utilisateur par son ID' })
+  @ApiOperation({
+    summary: 'Récupérer un utilisateur par son ID',
+    description:
+      '⚠️ API V1 - Deprecated. Utilisez la V2 pour les nouvelles intégrations.',
+  })
   @ApiParam({
     name: 'id',
     description: 'ID de l utilisateur',
@@ -138,7 +146,11 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Mettre à jour un utilisateur (Admin uniquement)' })
+  @ApiOperation({
+    summary: 'Mettre à jour un utilisateur (Admin uniquement)',
+    description:
+      '⚠️ API V1 - Deprecated. Utilisez la V2 pour les nouvelles intégrations.',
+  })
   @ApiParam({
     name: 'id',
     description: 'ID de l utilisateur',
@@ -166,7 +178,11 @@ export class UsersController {
 
   @Delete(':id')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Supprimer un utilisateur (Admin uniquement)' })
+  @ApiOperation({
+    summary: 'Supprimer un utilisateur (Admin uniquement)',
+    description:
+      '⚠️ API V1 - Deprecated. Utilisez la V2 pour les nouvelles intégrations.',
+  })
   @ApiParam({
     name: 'id',
     description: 'ID de l utilisateur',

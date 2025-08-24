@@ -5,7 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Put,
+  Patch,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
@@ -20,122 +20,220 @@ import {
 import * as bcrypt from 'bcrypt';
 import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateBasicInfoDto } from './dto/update-basic-info.dto';
+import { UpdateDietaryRestrictionsDto } from './dto/update-dietary-restrictions.dto';
+import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { User } from './entity/user.entity';
 import { UsersService } from './users.service';
 
-// Interface RequestWithUser n'est plus nécessaire avec le décorateur @CurrentUser
-
 @ApiTags('Profil Utilisateur')
-@Controller('user')
+@Controller({ path: 'user/profile', version: '2' })
+@UseGuards(AuthGuard('jwt'))
+@ApiBearerAuth()
 export class UserProfileController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Get('profile')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @ApiOperation({ summary: "Obtenir le profil de l'utilisateur connecté" })
+  @Get()
+  @ApiOperation({
+    summary: "Obtenir le profil complet de l'utilisateur connecté",
+    description:
+      'Récupère toutes les informations du profil utilisateur incluant les préférences et paramètres de notification',
+  })
   @ApiResponse({
     status: 200,
     description: 'Profil récupéré avec succès',
     type: User,
   })
-  @ApiResponse({ status: 401, description: 'Non autorisé' })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé - Token JWT invalide ou manquant',
+  })
   @SerializationGroups('user:read')
   getProfile(@CurrentUser() user: User) {
     return user;
   }
 
-  @Put('profile')
+  @Patch('basic-info')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
   @ApiOperation({
-    summary: "Mettre à jour le profil de l'utilisateur connecté",
+    summary: 'Mettre à jour les informations personnelles de base',
+    description:
+      "Met à jour le prénom, nom et email de l'utilisateur avec vérification d'unicité de l'email",
   })
-  @ApiBody({ type: UpdateProfileDto })
+  @ApiBody({ type: UpdateBasicInfoDto })
   @ApiResponse({
     status: 200,
-    description: 'Profil mis à jour avec succès',
+    description: 'Informations personnelles mises à jour avec succès',
     type: User,
   })
-  @ApiResponse({ status: 400, description: 'Données invalides' })
-  @ApiResponse({ status: 401, description: 'Non autorisé' })
-  @ApiResponse({ status: 409, description: 'Email déjà utilisé' })
-  @ApiResponse({ status: 403, description: 'Mot de passe actuel incorrect' })
+  @ApiResponse({
+    status: 400,
+    description: 'Données invalides - Vérifiez le format des champs',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé - Token JWT invalide ou manquant',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Conflit - Cet email est déjà utilisé par un autre utilisateur',
+  })
   @SerializationGroups('user:read')
-  async updateProfile(
+  async updateBasicInfo(
     @CurrentUser() currentUser: User,
-    @Body() updateProfileDto: UpdateProfileDto,
+    @Body() updateBasicInfoDto: UpdateBasicInfoDto,
   ) {
-    const userId = currentUser.id;
-    const user = await this.usersService.findOne(userId);
-
     // Vérification du changement d'email
-    if (updateProfileDto.email && updateProfileDto.email !== user.email) {
+    if (
+      updateBasicInfoDto.email &&
+      updateBasicInfoDto.email !== currentUser.email
+    ) {
       const existingUser = await this.usersService.findOneByEmail(
-        updateProfileDto.email,
+        updateBasicInfoDto.email,
       );
       if (existingUser) {
-        throw new ConflictException('Cet email est déjà utilisé');
+        throw new ConflictException(
+          'Cet email est déjà utilisé par un autre utilisateur',
+        );
       }
     }
 
-    // Gestion du changement de mot de passe
-    if (updateProfileDto.oldPassword && updateProfileDto.newPassword) {
-      // Récupérer l'utilisateur avec le mot de passe (car select: false par défaut)
-      const userWithPassword =
-        await this.usersService.findOneWithPassword(userId);
+    return this.usersService.update(
+      currentUser.id,
+      updateBasicInfoDto,
+      currentUser,
+    );
+  }
 
-      const isPasswordValid = await bcrypt.compare(
-        updateProfileDto.oldPassword,
-        userWithPassword.password,
-      );
+  @Patch('password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Changer le mot de passe',
+    description:
+      "Change le mot de passe de l'utilisateur après vérification du mot de passe actuel",
+  })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Mot de passe changé avec succès',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Mot de passe mis à jour avec succès',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Données invalides - Vérifiez le format du nouveau mot de passe',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé - Mot de passe actuel incorrect',
+  })
+  async changePassword(
+    @CurrentUser() currentUser: User,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    // Récupérer l'utilisateur avec le mot de passe (car select: false par défaut)
+    const userWithPassword = await this.usersService.findOneWithPassword(
+      currentUser.id,
+    );
 
-      if (!isPasswordValid) {
-        throw new UnauthorizedException('Mot de passe actuel incorrect');
-      }
+    const isPasswordValid = await bcrypt.compare(
+      changePasswordDto.currentPassword,
+      userWithPassword.password,
+    );
 
-      const hashedPassword = await bcrypt.hash(
-        updateProfileDto.newPassword,
-        10,
-      );
-      updateProfileDto.newPassword = undefined;
-      updateProfileDto.oldPassword = undefined;
-
-      await this.usersService.updatePassword(userId, hashedPassword);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
     }
 
-    const updateData: Partial<User> = {};
+    const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
+    await this.usersService.updatePassword(currentUser.id, hashedPassword);
 
-    if (updateProfileDto.firstName !== undefined) {
-      updateData.firstName = updateProfileDto.firstName;
-    }
+    return { message: 'Mot de passe mis à jour avec succès' };
+  }
 
-    if (updateProfileDto.lastName !== undefined) {
-      updateData.lastName = updateProfileDto.lastName;
-    }
+  @Patch('dietary-restrictions')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Mettre à jour les restrictions alimentaires',
+    description:
+      'Met à jour les allergènes, catégories préférées/exclues et restrictions alimentaires spécifiques',
+  })
+  @ApiBody({ type: UpdateDietaryRestrictionsDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Restrictions alimentaires mises à jour avec succès',
+    type: User,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Données invalides - Vérifiez le format des restrictions',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé - Token JWT invalide ou manquant',
+  })
+  @SerializationGroups('user:read')
+  async updateDietaryRestrictions(
+    @CurrentUser() currentUser: User,
+    @Body() updateDietaryRestrictionsDto: UpdateDietaryRestrictionsDto,
+  ) {
+    const updatedPreferences = {
+      ...(currentUser.preferences || {}),
+      ...updateDietaryRestrictionsDto,
+    };
 
-    if (updateProfileDto.email !== undefined) {
-      updateData.email = updateProfileDto.email;
-    }
+    return this.usersService.update(
+      currentUser.id,
+      { preferences: updatedPreferences } as Partial<User>,
+      currentUser,
+    );
+  }
 
-    // Mise à jour des préférences
-    if (updateProfileDto.preferences) {
-      updateData.preferences = {
-        ...(user.preferences || ({} as Record<string, unknown>)),
-        ...updateProfileDto.preferences,
-      };
-    }
+  @Patch('notification-preferences')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Mettre à jour les préférences de notification',
+    description:
+      'Configure tous les types de notifications : push, stock, recettes, foyer et mode silencieux',
+  })
+  @ApiBody({ type: UpdateNotificationPreferencesDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Préférences de notification mises à jour avec succès',
+    type: User,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Données invalides - Vérifiez le format des préférences',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé - Token JWT invalide ou manquant',
+  })
+  @SerializationGroups('user:read')
+  async updateNotificationPreferences(
+    @CurrentUser() currentUser: User,
+    @Body() updateNotificationPreferencesDto: UpdateNotificationPreferencesDto,
+  ) {
+    const updatedNotificationSettings = {
+      ...(currentUser.notificationSettings || {}),
+      ...updateNotificationPreferencesDto,
+    };
 
-    // Mise à jour des paramètres de notification
-    if (updateProfileDto.notificationSettings) {
-      updateData.notificationSettings = {
-        ...(user.notificationSettings || ({} as Record<string, unknown>)),
-        ...updateProfileDto.notificationSettings,
-      };
-    }
-
-    return this.usersService.update(userId, updateData, currentUser);
+    return this.usersService.update(
+      currentUser.id,
+      { notificationSettings: updatedNotificationSettings } as Partial<User>,
+      currentUser,
+    );
   }
 }
