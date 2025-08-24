@@ -1,4 +1,4 @@
-name: CI / Build & Publish Docker Image
+name: CI / Build & Deploy
 
 on:
   push:
@@ -8,22 +8,26 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  NAMESPACE: goofeat
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       packages: write
       id-token: write
 
+    outputs:
+      image_name: ${{ steps.vars.outputs.image_name }}
+      image_ref: ${{ steps.vars.outputs.image_ref }}
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           cache: 'yarn'
@@ -33,96 +37,75 @@ jobs:
         run: yarn install
         working-directory: ./app
 
-      # - name: Run tests
-      #   run: yarn test
-      #   working-directory: ./app
-
-      - name: Set lowercase image name
+      - name: Set image variables
         id: vars
         run: |
-          echo "image_name=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+          IMAGE_NAME="${GITHUB_REPOSITORY,,}"
+          IMAGE_REF="${{ env.REGISTRY }}/${IMAGE_NAME}:${{ github.sha }}"
+          echo "image_name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "image_ref=${IMAGE_REF}" >> $GITHUB_OUTPUT
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.vars.outputs.image_name }}:latest
-            ${{ env.REGISTRY }}/${{ steps.vars.outputs.image_name }}:${{ github.sha }}
+            ${{ steps.vars.outputs.image_ref }}
 
-      # - name: Configure AWS credentials
-      #   uses: aws-actions/configure-aws-credentials@v2
-      #   with:
-      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws-region: eu-north-1
-
-      # - name: Trigger AWS CodePipeline
-      #   run: |
-      #     aws codepipeline start-pipeline-execution --name goofeat_pipeline
-
-  deploy-minikube:
-    name: Deploy to Minikube
+  deploy:
+    name: Deploy to Kubernetes
     needs: build-and-push
     runs-on: self-hosted
-    env:
-      NAMESPACE: goofeat
+    
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set lowercase image name
-        id: vars
-        run: echo "image_name=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
-
-      - name: Compute image ref
-        id: image
-        run: echo "ref=${{ env.REGISTRY }}/${{ steps.vars.outputs.image_name }}:${{ github.sha }}" >> $GITHUB_OUTPUT
-
-      - name: Ensure kubectl present
+      - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: 'v1.30.0'
 
-      - name: Use minikube context
-        shell: bash
+      - name: Setup Kustomize
         run: |
-          if command -v minikube >/dev/null 2>&1; then
-            minikube update-context
+          if ! command -v kustomize &> /dev/null; then
+            curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+            mkdir -p $HOME/bin
+            mv kustomize $HOME/bin/
+            echo "$HOME/bin" >> $GITHUB_PATH
           fi
-          kubectl config use-context minikube || true
 
       - name: Create namespace
         run: kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Create app env secret from GitHub secret
+      - name: Create app environment secret
         env:
           APP_ENV_PROD: ${{ vars.APP_ENV_PROD }}
-        shell: bash
         run: |
           if [ -z "${APP_ENV_PROD}" ]; then
-            echo "Secret APP_ENV_PROD manquant. Ajoutez une variable d'environnement de dépôt GitHub nommé APP_ENV_PROD contenant votre .env de prod" >&2
+            echo "Variable APP_ENV_PROD manquante. Ajoutez une variable GitHub nommée APP_ENV_PROD contenant votre .env de prod" >&2
             exit 1
           fi
           printf "%s" "$APP_ENV_PROD" > .env.prod
           kubectl -n ${{ env.NAMESPACE }} create secret generic app-env \
             --from-env-file=.env.prod \
             --dry-run=client -o yaml | kubectl apply -f -
+          rm .env.prod
 
-      - name: Configure GHCR imagePullSecret (optional)
+      - name: Configure container registry credentials
         env:
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-        shell: bash
         run: |
           if [ -n "${GHCR_USERNAME}" ] && [ -n "${GHCR_TOKEN}" ]; then
             kubectl -n ${{ env.NAMESPACE }} create secret docker-registry ghcr-creds \
@@ -130,52 +113,26 @@ jobs:
               --docker-username="${GHCR_USERNAME}" \
               --docker-password="${GHCR_TOKEN}" \
               --dry-run=client -o yaml | kubectl apply -f -
-            kubectl -n ${{ env.NAMESPACE }} patch serviceaccount default -p '{"imagePullSecrets":[{"name":"ghcr-creds"}]}' || true
+            kubectl -n ${{ env.NAMESPACE }} patch serviceaccount default \
+              -p '{"imagePullSecrets":[{"name":"ghcr-creds"}]}' || true
           else
-            echo "GHCR credentials not provided. Skipping imagePullSecret creation."
+            echo "GHCR credentials optionnelles non fournies. Utilisation des credentials par défaut."
           fi
 
-      - name: Apply Deployment and Service
-        shell: bash
+      - name: Deploy with Kustomize
         run: |
-          cat <<'YAML' | sed "s#{{IMAGE}}#${{ steps.image.outputs.ref }}#g" | kubectl -n ${{ env.NAMESPACE }} apply -f -
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: goofeat-back
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                app: goofeat-back
-            template:
-              metadata:
-                labels:
-                  app: goofeat-back
-              spec:
-                containers:
-                - name: app
-                  image: {{IMAGE}}
-                  imagePullPolicy: IfNotPresent
-                  envFrom:
-                  - secretRef:
-                      name: app-env
-                  ports:
-                  - containerPort: 3000
-          ---
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: goofeat-back
-          spec:
-            type: NodePort
-            selector:
-              app: goofeat-back
-            ports:
-            - port: 3000
-              targetPort: 3000
-              nodePort: 30080
-          YAML
+          cd k8s/overlays/local
+          kustomize edit set image goofeat-back=${{ needs.build-and-push.outputs.image_ref }}
+          kustomize build . | kubectl apply -n ${{ env.NAMESPACE }} -f -
 
-      - name: Rollout status
-        run: kubectl -n ${{ env.NAMESPACE }} rollout status deploy/goofeat-back --timeout=120s
+      - name: Wait for deployment
+        run: kubectl -n ${{ env.NAMESPACE }} rollout status deployment/goofeat-back --timeout=300s
+
+      - name: Get deployment status
+        run: |
+          echo "=== Deployment Status ==="
+          kubectl -n ${{ env.NAMESPACE }} get deployments
+          echo "=== Pod Status ==="
+          kubectl -n ${{ env.NAMESPACE }} get pods
+          echo "=== Service Status ==="
+          kubectl -n ${{ env.NAMESPACE }} get services

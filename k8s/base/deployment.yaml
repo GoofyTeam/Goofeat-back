@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goofeat-back
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: goofeat-back
+  template:
+    metadata:
+      labels:
+        app: goofeat-back
+    spec:
+      containers:
+      - name: app
+        image: goofeat-back:latest
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: app-env
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
