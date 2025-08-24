@@ -27,10 +27,11 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('Goofeat API')
-    .setDescription('API pour Goofeat')
-    .setVersion('1.0')
+    .setDescription(
+      'API pour Goofeat - Refactorisation des endpoints de profil utilisateur avec versioning',
+    )
+    .setVersion('2.0')
     .addBearerAuth()
-
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
 

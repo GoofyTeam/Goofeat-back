@@ -29,7 +29,9 @@ import { User } from 'src/users/entity/user.entity';
 import { UserPreferences } from 'src/users/interfaces/user-preferences.interface';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
+import { ValidateRecipeDto } from './dto/validate-recipe.dto';
 import { Recipe } from './entities/recipe.entity';
+import { RecipeValidationResult } from './interfaces/recipe-validation-result.interface';
 import { RecipeService } from './recipe.service';
 
 @ApiTags('recipes')
@@ -181,5 +183,100 @@ export class RecipeController {
   @ApiResponse({ status: 404, description: 'Recette non trouvée' })
   remove(@Param('id') id: string) {
     return this.recipeService.remove(id);
+  }
+
+  @Post(':id/validate')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Valider et cuisiner une recette',
+    description:
+      'Vérifie la disponibilité des ingrédients, ajuste les quantités selon le nombre de personnes et met à jour automatiquement le stock',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Recette validée et stock mis à jour avec succès',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: {
+          type: 'string',
+          example:
+            'Recette "Tarte aux pommes" préparée avec succès pour 6 personne(s)',
+        },
+        recipe: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string', example: 'Tarte aux pommes' },
+            originalServings: { type: 'number', example: 4 },
+            requestedServings: { type: 'number', example: 6 },
+            scalingRatio: { type: 'number', example: 1.5 },
+          },
+        },
+        ingredientsUsed: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              ingredientName: { type: 'string', example: 'Pommes' },
+              originalQuantity: { type: 'number', example: 4 },
+              adjustedQuantity: { type: 'number', example: 6 },
+              unit: { type: 'string', example: 'pièce' },
+            },
+          },
+        },
+        stockUpdates: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              productName: { type: 'string', example: 'Pommes Golden' },
+              quantityBefore: { type: 'number', example: 10 },
+              quantityAfter: { type: 'number', example: 4 },
+              quantityUsed: { type: 'number', example: 6 },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Ingrédients manquants ou quantité insuffisante',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: false },
+        message: {
+          type: 'string',
+          example:
+            'Impossible de préparer la recette : 2 ingrédient(s) manquant(s)',
+        },
+        missingIngredients: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              ingredientName: { type: 'string', example: 'Beurre' },
+              requiredQuantity: { type: 'number', example: 150 },
+              availableQuantity: { type: 'number', example: 50 },
+              shortage: { type: 'number', example: 100 },
+              unit: { type: 'string', example: 'gramme' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Non autorisé' })
+  @ApiResponse({ status: 404, description: 'Recette non trouvée' })
+  async validateRecipe(
+    @Param('id') id: string,
+    @Body() validateRecipeDto: ValidateRecipeDto,
+    @CurrentUser() user: User,
+  ): Promise<RecipeValidationResult> {
+    return this.recipeService.validateRecipe(id, validateRecipeDto, user);
   }
 }
