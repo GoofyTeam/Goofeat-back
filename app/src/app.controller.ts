@@ -20,4 +20,24 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
+
+  @Get('health')
+  @ApiOperation({ summary: 'Endpoint de santé de l application' })
+  @ApiResponse({
+    status: 200,
+    description: 'Application en cours d exécution',
+    schema: {
+      type: 'string',
+      example: 'Hello World!',
+    },
+  })
+  getHealth() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      lifetime: process.uptime(),
+      memoryUsage: process.memoryUsage(),
+      nodeVersion: process.version,
+    };
+  }
 }

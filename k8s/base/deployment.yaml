@@ -13,24 +13,24 @@ spec:
         app: goofeat-back
     spec:
       containers:
-      - name: app
-        image: goofeat-back:latest
-        imagePullPolicy: IfNotPresent
-        envFrom:
-        - secretRef:
-            name: app-env
-        ports:
-        - containerPort: 3000
-          protocol: TCP
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: app
+          image: goofeat-back:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: app-env
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          # livenessProbe:
+          #   httpGet:
+          #     path: /api/v1/health
+          #     port: 3000
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /api/v1/health
+          #     port: 3000
+          #   initialDelaySeconds: 5
+          #   periodSeconds: 5
