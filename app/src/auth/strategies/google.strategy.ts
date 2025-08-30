@@ -7,7 +7,7 @@ import {
   StrategyOptions,
   VerifyCallback,
 } from 'passport-google-oauth20';
-import { AuthService, OAuthUser } from '../auth.service';
+import { AuthService } from '../auth.service';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -31,17 +31,16 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     done: VerifyCallback,
   ): Promise<void> {
     const { name, emails, photos } = profile;
-    console.log(profile, accessToken, refreshToken);
-    const user: OAuthUser = {
+
+    const user = await this.authService.findOrCreateOAuthUser({
+      provider: 'google',
+      providerId: profile.id,
       email: emails && emails[0] ? emails[0].value : '',
       firstName: name && name.givenName ? name.givenName : '',
       lastName: name && name.familyName ? name.familyName : '',
-      providerId: profile.id,
-      provider: profile.provider,
       picture: photos && photos[0] ? photos[0].value : undefined,
-    };
+    });
 
-    const validatedUser = await this.authService.validateOAuthUser(user);
-    done(null, validatedUser);
+    done(null, user);
   }
 }
