@@ -197,4 +197,47 @@ export class AuthController {
     await this.authService.verifyEmail(token);
     return { message: 'Votre email a été vérifié avec succès.' };
   }
+
+  @Post('google')
+  @ApiOperation({ summary: 'Authentification Google avec token ID' })
+  @ApiResponse({ status: 200, description: 'Authentification réussie' })
+  async googleMobileAuth(@Body() body: { tokenId: string }) {
+    const user = await this.authService.verifyGoogleTokenId(body.tokenId);
+    const token = this.authService.generateJwtToken(user);
+
+    return {
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profilePicture: user.profilePicture,
+      },
+    };
+  }
+
+  @Post('apple')
+  @ApiOperation({ summary: 'Authentification Apple avec token ID' })
+  @ApiResponse({ status: 200, description: 'Authentification réussie' })
+  async appleAuthmobile(
+    @Body() body: { tokenId: string; firstName?: string; lastName?: string },
+  ) {
+    const user = await this.authService.verifyAppleTokenId(body.tokenId, {
+      firstName: body.firstName,
+      lastName: body.lastName,
+    });
+    const token = this.authService.generateJwtToken(user);
+
+    return {
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profilePicture: user.profilePicture,
+      },
+    };
+  }
 }

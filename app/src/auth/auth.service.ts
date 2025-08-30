@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -8,7 +9,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import appleSignin from 'apple-signin-auth';
 import * as bcrypt from 'bcrypt';
+import { OAuth2Client } from 'google-auth-library';
 import { v4 as uuidv4 } from 'uuid';
 import { MailService } from '../common/mail/mail.service';
 import { User } from '../users/entity/user.entity';
@@ -235,5 +238,102 @@ export class AuthService {
     });
 
     return token;
+  }
+
+  async verifyGoogleTokenId(tokenId: string): Promise<User> {
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+    const ticket = await client.verifyIdToken({
+      idToken: tokenId,
+      audience: [
+        process.env.GOOGLE_CLIENT_ID || '',
+        process.env.GOOGLE_ANDROID_CLIENT_ID || '',
+        process.env.GOOGLE_IOS_CLIENT_ID || '',
+      ].filter((id) => id !== ''),
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload) {
+      throw new Error('Token Google invalide');
+    }
+
+    return this.findOrCreateOAuthUser({
+      provider: 'google',
+      providerId: payload.sub,
+      email: payload.email || '',
+      firstName: payload.given_name || '',
+      lastName: payload.family_name || '',
+      picture: payload.picture,
+    });
+  }
+
+  async verifyAppleTokenId(
+    tokenId: string,
+    appleUserData?: { firstName?: string; lastName?: string },
+  ): Promise<User> {
+    try {
+      const appleIdTokenClaims = await appleSignin.verifyIdToken(tokenId, {
+        audience: process.env.APPLE_CLIENT_ID,
+        ignoreExpiration: false,
+      });
+
+      if (!appleIdTokenClaims.sub) {
+        throw new Error('Token Apple invalide');
+      }
+
+      return this.findOrCreateOAuthUser({
+        provider: 'apple',
+        providerId: appleIdTokenClaims.sub,
+        email: appleIdTokenClaims.email || '',
+        firstName: appleUserData?.firstName || '',
+        lastName: appleUserData?.lastName || '',
+        picture: undefined, // Apple ne fournit pas de photo de profil
+      });
+    } catch (error) {
+      throw new UnauthorizedException(
+        'Échec de la vérification du token Apple: ' + error.message,
+      );
+    }
+  }
+
+  public async findOrCreateOAuthUser(oauthData: {
+    provider: string;
+    providerId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    picture?: string;
+  }): Promise<User> {
+    const { provider, providerId, email, firstName, lastName, picture } =
+      oauthData;
+
+    const user = await this.usersService.findOneByEmail(email);
+
+    if (user) {
+      // Mettre à jour les infos OAuth si nécessaire
+      return this.usersService.updateOAuthInfo(
+        user.id,
+        provider,
+        providerId,
+        picture,
+      );
+    }
+
+    const createUserDto = {
+      email,
+      firstName,
+      lastName,
+      password: '', // Pas de mot de passe pour OAuth
+      isEmailVerified: true,
+    };
+
+    const newUser = await this.usersService.create(createUserDto);
+
+    return this.usersService.updateOAuthInfo(
+      newUser.id,
+      provider,
+      providerId,
+      picture,
+    );
   }
 }
