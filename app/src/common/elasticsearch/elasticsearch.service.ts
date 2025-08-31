@@ -66,7 +66,7 @@ export class ElasticsearchService implements OnModuleInit {
               categories: { type: 'text', analyzer: 'french' },
               ingredients_count: { type: 'integer' },
               ingredients: {
-                type: 'nested',
+                type: 'object',
                 properties: {
                   id: { type: 'keyword' },
                   name: { type: 'text', analyzer: 'french' },
@@ -383,9 +383,13 @@ export class ElasticsearchService implements OnModuleInit {
                       if (params.dlc == null || params.dlc.isEmpty()) {
                         return 0;
                       }
+                      if (params._source == null || params._source.ingredients == null) {
+                        return 0;
+                      }
                       long today = new Date().getTime();
                       int dlcCount = 0;
-                      for (def ingredient : ctx._source.ingredients) {
+                      for (int i = 0; i < params._source.ingredients.size(); i++) {
+                        def ingredient = params._source.ingredients.get(i);
                         if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
                           long dlcDate = ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
                           long diff = dlcDate - today;
@@ -411,12 +415,13 @@ export class ElasticsearchService implements OnModuleInit {
                 script: {
                   source: `
                       double availabilityScore = 0;
-                      if (ctx._source.ingredients == null || ctx._source.ingredients.isEmpty()) {
+                      if (params._source == null || params._source.ingredients == null) {
                         return 1.0; // No ingredients required, perfect availability
                       }
-                      int totalIngredients = ctx._source.ingredients.size();
+                      int totalIngredients = params._source.ingredients.size();
                       int availableIngredients = 0;
-                      for (def ingredient : ctx._source.ingredients) {
+                      for (int i = 0; i < params._source.ingredients.size(); i++) {
+                        def ingredient = params._source.ingredients.get(i);
                         if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
                            def stock = params.stocks[ingredient.productId];
                            if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
@@ -475,9 +480,11 @@ export class ElasticsearchService implements OnModuleInit {
           source: `
             double dlcScore = 0;
             if (params.dlc == null || params.dlc.isEmpty()) { return 0; }
+            if (params._source == null || params._source.ingredients == null) { return 0; }
             long today = new Date().getTime();
             int dlcCount = 0;
-            for (def ingredient : ctx._source.ingredients) {
+            for (int i = 0; i < params._source.ingredients.size(); i++) {
+              def ingredient = params._source.ingredients.get(i);
               if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
                 long dlcDate = java.time.ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
                 long diff = dlcDate - today;
@@ -508,12 +515,13 @@ export class ElasticsearchService implements OnModuleInit {
         script: {
           source: `
             double availabilityScore = 0;
-            if (ctx._source.ingredients == null || ctx._source.ingredients.isEmpty()) {
+            if (params._source == null || params._source.ingredients == null) {
               return 1.0; // No ingredients required, perfect availability
             }
-            int totalIngredients = ctx._source.ingredients.size();
+            int totalIngredients = params._source.ingredients.size();
             int availableIngredients = 0;
-            for (def ingredient : ctx._source.ingredients) {
+            for (int i = 0; i < params._source.ingredients.size(); i++) {
+              def ingredient = params._source.ingredients.get(i);
               if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
                  def stock = params.stocks[ingredient.productId];
                  if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
@@ -531,5 +539,17 @@ export class ElasticsearchService implements OnModuleInit {
       },
       weight: 1.5,
     };
+  }
+
+  async countRecipes(): Promise<number> {
+    try {
+      const result = await this.client.count({
+        index: this.recipesIndex,
+      });
+      return result.count;
+    } catch (error) {
+      this.logger.error('Error counting recipes in Elasticsearch:', error);
+      return 0;
+    }
   }
 }

@@ -3,12 +3,9 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { CategoryModule } from './categories/category.module';
 import { DatabaseModule } from './common/database/database.module';
-import { IngredientsModule } from './ingredients/ingredients.module';
 import { ElasticsearchModule } from './common/elasticsearch/elasticsearch.module';
 import { ExternalApisModule } from './common/external-apis/external-apis.module';
 import { LoggerMiddleware } from './common/logger/logger.middleware';
@@ -16,11 +13,13 @@ import { LoggerModule } from './common/logger/logger.module';
 import { SerializerModule } from './common/serializer/serializer.module';
 import { UnitsModule } from './common/units/units.module';
 import { HouseholdModule } from './households/household.module';
+import { IngredientsModule } from './ingredients/ingredients.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProductModule } from './products/product.module';
 import { RecipeModule } from './recipes/recipe.module';
 import { StockModule } from './stocks/stock.module';
 import { UsersModule } from './users/users.module';
+import { CommandsModule } from './commands/commands.module';
 
 @Module({
   imports: [
@@ -33,7 +32,6 @@ import { UsersModule } from './users/users.module';
     DatabaseModule,
     UsersModule,
     AuthModule,
-    CategoryModule,
     IngredientsModule,
     ProductModule,
     RecipeModule,
@@ -44,6 +42,7 @@ import { UsersModule } from './users/users.module';
     ElasticsearchModule,
     ExternalApisModule,
     UnitsModule,
+    CommandsModule,
     MailerModule.forRootAsync({
       useFactory: () => ({
         transport: {

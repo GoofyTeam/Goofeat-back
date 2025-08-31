@@ -1,31 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Category } from 'src/categories/entities/category.entity';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Product } from 'src/products/entities/product.entity';
 import { RecipeIngredient } from 'src/recipes/entities/recipe-ingredient.entity';
 import { Recipe } from 'src/recipes/entities/recipe.entity';
 import { Repository } from 'typeorm';
-import { CategorySeedService } from './category.seed';
 import { ProductSeedService } from './product.seed';
-import { RecipeSeedService } from './recipe.seed';
 
 @Injectable()
 export class SeederService {
   private readonly logger = new Logger(SeederService.name);
 
   constructor(
-    private readonly categorySeedService: CategorySeedService,
     private readonly productSeedService: ProductSeedService,
-    private readonly recipeSeedService: RecipeSeedService,
     @InjectRepository(Recipe)
     private readonly recipeRepository: Repository<Recipe>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Ingredient)
     private readonly ingredientRepository: Repository<Ingredient>,
-    @InjectRepository(Category)
-    private readonly categoryRepository: Repository<Category>,
     @InjectRepository(RecipeIngredient)
     private readonly recipeIngredientRepository: Repository<RecipeIngredient>,
   ) {}
@@ -46,21 +39,18 @@ export class SeederService {
     await this.productRepository.query(
       'TRUNCATE TABLE "products" RESTART IDENTITY CASCADE',
     );
-    await this.categoryRepository.query(
-      'TRUNCATE TABLE "categories" RESTART IDENTITY CASCADE',
-    );
     this.logger.log('Base de données nettoyée.');
   }
 
   async seedAll() {
     this.logger.log('Démarrage du processus de seeding complet...');
 
-    this.logger.log('Étape 3: Seeding des produits...');
+    this.logger.log('Étape 1: Seeding des produits...');
     await this.productSeedService.seed();
 
-    this.logger.log('Étape 4: Seeding des recettes...');
-    await this.recipeSeedService.seed();
-
     this.logger.log('Seeding terminé avec succès !');
+    this.logger.log(
+      '💡 Pour les recettes, utilisez: yarn nest start --exec="seed:spoonacular:recipes"',
+    );
   }
 }

@@ -6,6 +6,9 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { add } from 'date-fns';
+import { DlcRulesService } from 'src/common/dlc/dlc-rules.service';
+import { UnitConversionService } from 'src/common/units/unit-conversion.service';
+import { PieceUnit } from 'src/common/units/unit.enums';
 import { Product } from 'src/products/entities/product.entity';
 import { User } from 'src/users/entity/user.entity';
 import { Role } from 'src/users/enums/role.enum';
@@ -23,6 +26,8 @@ export class StockService {
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
     private eventEmitter: EventEmitter2,
+    private unitConversionService: UnitConversionService,
+    private dlcRulesService: DlcRulesService,
   ) {}
 
   async create(createStockDto: CreateStockDto, user: User): Promise<Stock> {
@@ -37,17 +42,35 @@ export class StockService {
     }
 
     if (!createStockDto.dlc) {
-      const matches = product.defaultDlcTime.match(/\d+/);
-      const defaultDlcDays = parseInt(matches ? matches[0] : '30');
-
-      createStockDto.dlc = add(new Date(), { days: defaultDlcDays });
+      const dlcPrediction = this.dlcRulesService.predictDefaultDlc(product);
+      createStockDto.dlc = add(new Date(), { days: dlcPrediction.days });
     }
 
     const { productId, ...stockData } = createStockDto;
+
+    // Calculer la quantité totale réelle si on a des infos de packaging
+    let totalQuantity = createStockDto.quantity;
+    let baseUnit =
+      createStockDto.unit || product.defaultUnit || PieceUnit.PIECE;
+
+    if (product.packagingSize && product.unitSize) {
+      const conversionResult =
+        this.unitConversionService.calculateTotalQuantity(
+          createStockDto.quantity,
+          createStockDto.unit || product.defaultUnit || PieceUnit.PIECE,
+          product.unitSize,
+          product.packagingSize,
+        );
+      totalQuantity = conversionResult.totalQuantity;
+      baseUnit = conversionResult.baseUnit;
+    }
+
     const stock = this.stockRepository.create({
       ...stockData,
       user,
       product,
+      totalQuantity,
+      baseUnit,
     });
     const savedStock = await this.stockRepository.save(stock);
 

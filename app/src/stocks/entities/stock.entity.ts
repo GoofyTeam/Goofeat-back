@@ -64,6 +64,29 @@ export class Stock {
   unit?: Unit;
 
   @ApiProperty({
+    description:
+      'Quantité totale réelle en stock (calculée avec unitSize et packagingSize)',
+    example: 6,
+    required: false,
+  })
+  @Column({ type: 'float', nullable: true })
+  @Expose({ groups: ['stock:list', 'stock:read'] })
+  totalQuantity?: number;
+
+  @ApiProperty({
+    description: 'Unité de base pour la quantité totale',
+    example: 'l',
+    required: false,
+  })
+  @Column({
+    type: 'enum',
+    enum: Unit,
+    nullable: true,
+  })
+  @Expose({ groups: ['stock:list', 'stock:read'] })
+  baseUnit?: Unit;
+
+  @ApiProperty({
     description: 'Date limite de consommation',
     example: '2025-12-31',
   })

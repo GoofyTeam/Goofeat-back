@@ -5,6 +5,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { APIResponse, OFF as OFFClass } from 'openfoodfacts-nodejs';
+import { OpenFoodFactsAnalyzerService } from 'src/common/units/openfoodfacts-analyzer.service';
 import { parseQuantity } from 'src/common/units/unit.utils';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Repository } from 'typeorm';
@@ -19,6 +20,7 @@ export class OpenFoodFactsService implements ProductDataService {
   constructor(
     @InjectRepository(Ingredient)
     private readonly ingredientRepository: Repository<Ingredient>,
+    private readonly offAnalyzer: OpenFoodFactsAnalyzerService,
   ) {
     this.client = new OFF() as OFFClass;
   }
@@ -112,14 +114,37 @@ export class OpenFoodFactsService implements ProductDataService {
       }
     }
 
-    const parsedQuantity = parseQuantity(openFoodFactsProduct.quantity);
+    // Analyser les données de packaging avec le nouveau service
+    const packagingInfo =
+      this.offAnalyzer.analyzeOpenFoodFactsProduct(openFoodFactsProduct);
 
-    if (parsedQuantity.value === null || parsedQuantity.unit === null) {
-      throw new Error(
-        `Quantité ou unité invalide pour le produit ${name} (${barcode})`,
-      );
+    if (!packagingInfo) {
+      // Fallback sur l'ancien système si l'analyse échoue
+      const parsedQuantity = parseQuantity(openFoodFactsProduct.quantity);
+
+      if (parsedQuantity.value === null || parsedQuantity.unit === null) {
+        throw new Error(
+          `Quantité ou unité invalide pour le produit ${name} (${barcode})`,
+        );
+      }
+
+      const productData: ProductData = {
+        code: barcode,
+        name,
+        description: openFoodFactsProduct.ingredients_text || '',
+        imageUrl:
+          openFoodFactsProduct.image_url ||
+          openFoodFactsProduct.image_front_url,
+        nutriments: openFoodFactsProduct.nutriments,
+        ingredients,
+        packagingSize: parsedQuantity.value,
+        defaultUnit: parsedQuantity.unit,
+      };
+
+      return productData;
     }
 
+    // Utiliser les données analysées
     const productData: ProductData = {
       code: barcode,
       name,
@@ -128,15 +153,24 @@ export class OpenFoodFactsService implements ProductDataService {
         openFoodFactsProduct.image_url || openFoodFactsProduct.image_front_url,
       nutriments: openFoodFactsProduct.nutriments,
       ingredients,
-      packagingSize: parsedQuantity.value,
-      defaultUnit: parsedQuantity.unit,
-      // rawData: openFoodFactsProduct,
+      defaultUnit: packagingInfo.totalUnit,
 
-      // categories: openFoodFactsProduct.categories,
-      // categories_tags: openFoodFactsProduct.categories_tags,
-      // categories_properties: openFoodFactsProduct.categories_properties,
-      // categories_properties_tags:
-      //   openFoodFactsProduct.categories_properties_tags,
+      // Informations de packaging détectées
+      ...(packagingInfo.isMultipack
+        ? {
+            packagingSize: packagingInfo.packagingSize || 1,
+            unitSize: packagingInfo.unitSize,
+          }
+        : {
+            // Produit simple
+            packagingSize: packagingInfo.totalQuantity || 1,
+          }),
+
+      rawData: {
+        originalQuantity: openFoodFactsProduct.quantity,
+        detectedPackaging: packagingInfo,
+        ...openFoodFactsProduct,
+      },
     };
 
     // console.log((openFoodFactsProduct as any).food_groups);

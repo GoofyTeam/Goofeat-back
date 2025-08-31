@@ -4,6 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDate,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -12,6 +13,7 @@ import {
   ValidationArguments,
   ValidationOptions,
 } from 'class-validator';
+import { Unit } from 'src/common/units/unit.enums';
 
 // Décorateur personnalisé pour vérifier qu'au moins un des champs est renseigné
 export function IsRequiredIfOtherIsMissing(
@@ -86,6 +88,16 @@ export class CreateStockDto {
   @IsNotEmpty()
   @IsNumber()
   quantity: number;
+
+  @ApiProperty({
+    description: 'Unité de mesure (surcharge celle du produit si spécifiée)',
+    example: 'kg',
+    enum: Unit,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(Unit)
+  unit?: Unit;
 
   @ApiProperty({
     description: 'Date limite de consommation',
