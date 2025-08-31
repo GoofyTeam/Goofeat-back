@@ -1,11 +1,11 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Command, CommandRunner, Option } from 'nest-commander';
 import {
   SeedConfiguration,
   SpoonacularRecipesSeedService,
-} from '../services/spoonacular-recipes-seed.service';
+} from 'src/common/external-apis/services/spoonacular-recipes-seed.service';
 
-interface SeedSpoonacularOptions {
+interface ImportSpoonacularOptions {
   batchSize?: number;
   maxRecipes?: number;
   minCompletenessScore?: number;
@@ -20,14 +20,14 @@ interface SeedSpoonacularOptions {
   cleanProgress?: boolean;
 }
 
+@Injectable()
 @Command({
-  name: 'seed:spoonacular:recipes',
+  name: 'import:spoonacular:recipes',
   description:
     "Importe des recettes depuis l'API Spoonacular avec mapping intelligent des ingrédients",
-  options: { isDefault: false },
 })
-export class SeedSpoonacularRecipesCommand extends CommandRunner {
-  private readonly logger = new Logger(SeedSpoonacularRecipesCommand.name);
+export class ImportSpoonacularRecipesCommand extends CommandRunner {
+  private readonly logger = new Logger(ImportSpoonacularRecipesCommand.name);
 
   constructor(
     private readonly spoonacularSeedService: SpoonacularRecipesSeedService,
@@ -37,9 +37,9 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
 
   async run(
     passedParam: string[],
-    options: SeedSpoonacularOptions,
+    options: ImportSpoonacularOptions,
   ): Promise<void> {
-    this.logger.log('🚀 Démarrage du seed des recettes Spoonacular...');
+    this.logger.log('🚀 Import des recettes Spoonacular...');
 
     // Nettoyer le fichier de progrès si demandé
     if (options.cleanProgress) {
@@ -68,12 +68,12 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
         saveProgressFile: options.progressFile,
       };
 
-      this.logger.log('Configuration du seed:', config);
+      this.logger.log("Configuration de l'import:", config);
 
       const result = await this.spoonacularSeedService.seedRecipes(config);
 
       // Afficher les résultats
-      this.logger.log('✅ Seed terminé avec succès !');
+      this.logger.log('✅ Import terminé avec succès !');
       this.logger.log('📊 Résultats:');
       this.logger.log(`   • Recettes récupérées: ${result.totalFetched}`);
       this.logger.log(`   • Recettes créées: ${result.totalCreated}`);
@@ -117,17 +117,16 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
       }
     } catch (error) {
       this.logger.error(
-        '❌ Erreur lors du seed des recettes Spoonacular:',
+        "❌ Erreur lors de l'import des recettes Spoonacular:",
         error,
       );
-      process.exit(1);
+      throw error;
     }
   }
 
   @Option({
     flags: '-b, --batch-size <number>',
     description: 'Nombre de recettes par batch (défaut: 50)',
-    defaultValue: 50,
   })
   parseBatchSize(value: string): number {
     const parsed = parseInt(value, 10);
@@ -140,7 +139,6 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
   @Option({
     flags: '-m, --max-recipes <number>',
     description: 'Nombre maximum de recettes à importer (défaut: 500)',
-    defaultValue: 500,
   })
   parseMaxRecipes(value: string): number {
     const parsed = parseInt(value, 10);
@@ -155,7 +153,6 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
   @Option({
     flags: '-s, --min-completeness-score <number>',
     description: 'Score minimum de complétude requis en % (défaut: 60)',
-    defaultValue: 60,
   })
   parseMinCompletenessScore(value: string): number {
     const parsed = parseInt(value, 10);
@@ -169,7 +166,6 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
     flags: '-t, --complete-threshold <number>',
     description:
       'Seuil pour marquer une recette comme "complète" en % (défaut: 80)',
-    defaultValue: 80,
   })
   parseCompleteThreshold(value: string): number {
     const parsed = parseInt(value, 10);
@@ -199,7 +195,6 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
   @Option({
     flags: '-n, --include-nutrition',
     description: "Inclure les données nutritionnelles (consomme plus d'API)",
-    defaultValue: false,
   })
   parseIncludeNutrition(): boolean {
     return true;
@@ -208,7 +203,6 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
   @Option({
     flags: '--dry-run',
     description: "Mode test - n'effectue aucune modification en base",
-    defaultValue: false,
   })
   parseDryRun(): boolean {
     return true;
@@ -217,7 +211,6 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
   @Option({
     flags: '--resume',
     description: 'Reprendre depuis le dernier point de sauvegarde',
-    defaultValue: false,
   })
   parseResume(): boolean {
     return true;
@@ -247,7 +240,6 @@ export class SeedSpoonacularRecipesCommand extends CommandRunner {
   @Option({
     flags: '--clean-progress',
     description: 'Supprimer le fichier de progrès existant',
-    defaultValue: false,
   })
   parseCleanProgress(): boolean {
     return true;

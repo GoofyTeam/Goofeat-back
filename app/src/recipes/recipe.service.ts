@@ -347,13 +347,22 @@ export class RecipeService {
 
       for (const update of stockUpdates) {
         const stock = update.stock;
-        const quantityBefore = stock.quantity;
+        // Utiliser totalQuantity si disponible, sinon quantity
+        const effectiveQuantity = stock.totalQuantity || stock.quantity;
+        const quantityBefore = effectiveQuantity;
         const quantityAfter = quantityBefore - update.quantityUsed;
 
         // Mettre à jour le stock
-        await this.stockRepository.update(stock.id, {
+        const updateData: any = {
           quantity: quantityAfter,
-        });
+        };
+
+        // Si totalQuantity existe, la mettre à jour aussi
+        if (stock.totalQuantity !== undefined && stock.totalQuantity !== null) {
+          updateData.totalQuantity = quantityAfter;
+        }
+
+        await this.stockRepository.update(stock.id, updateData);
 
         // Créer le log
         const stockLog = this.stockLogRepository.create({
@@ -421,7 +430,7 @@ export class RecipeService {
 
     // 1. Filtrer les stocks avec quantité suffisante
     const validStocks = stocks.filter(
-      (stock) => stock.quantity >= requiredQuantity,
+      (stock) => (stock.totalQuantity || stock.quantity) >= requiredQuantity,
     );
 
     if (validStocks.length === 0) {
@@ -443,8 +452,10 @@ export class RecipeService {
       }
 
       // Priorité 2 : Quantité optimale - plus proche de la quantité requise
-      const diffA = Math.abs(a.quantity - requiredQuantity);
-      const diffB = Math.abs(b.quantity - requiredQuantity);
+      const quantityA = a.totalQuantity || a.quantity;
+      const quantityB = b.totalQuantity || b.quantity;
+      const diffA = Math.abs(quantityA - requiredQuantity);
+      const diffB = Math.abs(quantityB - requiredQuantity);
 
       if (diffA !== diffB) {
         return diffA - diffB; // Différence croissante
@@ -474,7 +485,7 @@ export class RecipeService {
     }
 
     const totalAvailable = stocks.reduce(
-      (sum, stock) => sum + stock.quantity,
+      (sum, stock) => sum + (stock.totalQuantity || stock.quantity),
       0,
     );
     if (totalAvailable < requiredQuantity) {
@@ -510,7 +521,8 @@ export class RecipeService {
     for (const stock of sortedStocks) {
       if (remainingQuantity <= 0) break;
 
-      const quantityToUse = Math.min(stock.quantity, remainingQuantity);
+      const availableQuantity = stock.totalQuantity || stock.quantity;
+      const quantityToUse = Math.min(availableQuantity, remainingQuantity);
       stockUsages.push({ stock, quantityToUse });
       remainingQuantity -= quantityToUse;
     }

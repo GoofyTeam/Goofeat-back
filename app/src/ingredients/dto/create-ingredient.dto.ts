@@ -36,12 +36,4 @@ export class CreateIngredientDto {
   @IsString()
   @IsOptional()
   offTag?: string;
-
-  @ApiProperty({
-    description: 'Identifiant de la catégorie (optionnel)',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  categoryId?: string;
 }

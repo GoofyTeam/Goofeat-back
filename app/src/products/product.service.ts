@@ -94,6 +94,28 @@ export class ProductService {
   }
 
   async findAll(filterDto: Partial<FilterProductDto> = {}, user?: User) {
+    // 1. Recherche locale d'abord
+    const localResults = await this.searchLocal(filterDto, user);
+
+    // 2. Décider si chercher dans OpenFoodFacts avec garde-fous
+    if (this.shouldSearchOpenFoodFacts(localResults, filterDto)) {
+      try {
+        // 3. Recherche OpenFoodFacts et populate
+        const externalResults = await this.searchAndPopulateFromOFF(filterDto);
+
+        // 4. Fusionner les résultats (locale en premier, puis OFF)
+        return this.mergeResults(localResults, externalResults);
+      } catch (error) {
+        // En cas d'erreur OFF, retourner les résultats locaux
+        console.warn('Erreur recherche OpenFoodFacts:', error);
+        return localResults;
+      }
+    }
+
+    return localResults;
+  }
+
+  private async searchLocal(filterDto: Partial<FilterProductDto>, user?: User) {
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.creator', 'creator')
@@ -128,10 +150,10 @@ export class ProductService {
       );
     }
 
-    // Pagination
-    if (filterDto.limit) {
-      queryBuilder.take(filterDto.limit);
-    }
+    // Pagination pour résultats locaux seulement
+    const localLimit = filterDto.limit ? Math.min(filterDto.limit, 10) : 10;
+    queryBuilder.take(localLimit);
+
     if (filterDto.offset) {
       queryBuilder.skip(filterDto.offset);
     }
@@ -140,6 +162,112 @@ export class ProductService {
     queryBuilder.orderBy('product.createdAt', 'DESC');
 
     return queryBuilder.getMany();
+  }
+
+  private shouldSearchOpenFoodFacts(
+    localResults: Product[],
+    filterDto: Partial<FilterProductDto>,
+  ): boolean {
+    // Garde-fous : ne pas chercher dans OFF si :
+
+    // 1. Pas de terme de recherche textuel
+    if (!filterDto.search || filterDto.search.length < 3) {
+      return false;
+    }
+
+    // 2. Recherche par code-barres exact (déjà géré par endpoint dédié)
+    if (filterDto.code) {
+      return false;
+    }
+
+    // 3. Filtrage sur produits manuels uniquement
+    if (filterDto.type === ProductTypeFilter.MANUAL) {
+      return false;
+    }
+
+    // 4. Filtrage sur "mes produits" uniquement
+    if (filterDto.onlyMyProducts) {
+      return false;
+    }
+
+    // 5. Résultats locaux déjà suffisants (seuil configurable)
+    const minResultsThreshold = 5;
+    if (localResults.length >= minResultsThreshold) {
+      return false;
+    }
+
+    // 6. Pagination avec offset (ne chercher OFF que sur la première page)
+    if (filterDto.offset && filterDto.offset > 0) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private async searchAndPopulateFromOFF(
+    filterDto: Partial<FilterProductDto>,
+  ): Promise<Product[]> {
+    if (!filterDto.search) return [];
+
+    // Limiter la recherche OFF (coût réseau)
+    const offLimit = Math.min(filterDto.limit || 10, 15);
+
+    const externalProducts = await this.productDataService.searchProductsByName(
+      filterDto.search,
+      offLimit,
+    );
+
+    const savedProducts: Product[] = [];
+
+    for (const productData of externalProducts) {
+      try {
+        // Vérifier si le produit existe déjà (par code-barres)
+        if (productData.barcode) {
+          const existing = await this.productRepository.findOne({
+            where: { code: productData.barcode },
+          });
+
+          if (existing) {
+            savedProducts.push(existing);
+            continue;
+          }
+        }
+
+        // Créer et sauvegarder le nouveau produit
+        const newProduct = this.productRepository.create(productData);
+        const saved = await this.productRepository.save(newProduct);
+        savedProducts.push(saved);
+      } catch (error) {
+        // Continue avec les autres produits en cas d'erreur
+        console.warn('Erreur sauvegarde produit OFF:', error);
+      }
+    }
+
+    return savedProducts;
+  }
+
+  private mergeResults(
+    localResults: Product[],
+    externalResults: Product[],
+  ): Product[] {
+    // Créer un Map pour éviter les doublons (par code-barres ou nom)
+    const resultMap = new Map<string, Product>();
+
+    // Ajouter les résultats locaux en priorité
+    localResults.forEach((product) => {
+      const key = product.code || product.name.toLowerCase();
+      resultMap.set(key, product);
+    });
+
+    // Ajouter les résultats externes s'ils n'existent pas déjà
+    externalResults.forEach((product) => {
+      const key = product.code || product.name.toLowerCase();
+      if (!resultMap.has(key)) {
+        resultMap.set(key, product);
+      }
+    });
+
+    return Array.from(resultMap.values());
   }
 
   async findOne(id: string) {

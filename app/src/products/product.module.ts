@@ -2,6 +2,7 @@ import { HttpModule } from '@nestjs/axios';
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ElasticsearchModule } from 'src/common/elasticsearch/elasticsearch.module';
+import { OpenFoodFactsAnalyzerService } from 'src/common/units/openfoodfacts-analyzer.service';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { IngredientsModule } from 'src/ingredients/ingredients.module';
 import { Product } from './entities/product.entity';
@@ -25,6 +26,7 @@ import { ProductService } from './product.service';
       useClass: OpenFoodFactsService,
     },
     OpenFoodFactsService,
+    OpenFoodFactsAnalyzerService,
     MockProductService,
   ],
   exports: [ProductService],

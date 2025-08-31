@@ -1,14 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose, Type } from 'class-transformer';
-import { Category } from 'src/categories/entities/category.entity';
+import { Expose } from 'class-transformer';
 import { Product } from 'src/products/entities/product.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
   ManyToMany,
-  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -81,26 +78,17 @@ export class Ingredient {
   @Column({ type: 'varchar', unique: true })
   name: string;
 
-  @Expose({ groups: ['ingredient:read'] })
-  @ApiProperty({
-    description: 'Identifiant de la catégorie parente',
-    required: false,
-  })
-  @Column({ nullable: true })
-  categoryId?: string;
-
-  @ManyToOne(() => Category, {
-    eager: true,
-    nullable: true,
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'categoryId' })
-  @Expose({ groups: ['ingredient:read'] })
-  @Type(() => Category)
-  category?: Category;
-
   @ManyToMany(() => Product, (product) => product.ingredients)
   products: Product[];
+
+  @Expose({ groups: ['ingredient:read'] })
+  @ApiProperty({
+    description: 'Durée de conservation par défaut pour cet ingrédient',
+    example: '7 days',
+    required: false,
+  })
+  @Column({ type: 'interval', nullable: true })
+  defaultDlcTime?: string;
 
   @CreateDateColumn()
   @Expose({ groups: ['ingredient:read'] })
