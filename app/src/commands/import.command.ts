@@ -39,10 +39,9 @@ export class ImportIngredientsCommand extends CommandRunner {
     passedParams: string[],
     options?: ImportIngredientsOptions,
   ): Promise<void> {
-    console.log('📥 Import des ingrédients depuis OpenFoodFacts...');
-    console.log('Options:', options);
+    console.log('Import des ingrédients depuis OpenFoodFacts...');
     try {
-      console.log('Téléchargement de la taxonomie OFF...');
+      console.log('Téléchargement taxonomie...');
       const response = await axios.get<OffTaxonomy>(this.TAXONOMY_URL);
       const data = response.data;
       const seen = new Set<string>();
@@ -50,10 +49,10 @@ export class ImportIngredientsCommand extends CommandRunner {
       let processed = 0;
       const entries = Object.entries(data);
       const totalEntries = options?.limit || entries.length;
-      console.log(`Traitement de ${totalEntries} ingrédients...`);
+      console.log(`Traitement de ${totalEntries} entrées...`);
       for (const [offTagRaw, ingredientDataRaw] of entries) {
         if (options?.limit && processed >= options.limit) {
-          console.log(`Limite de ${options.limit} atteinte.`);
+          console.log(`Limite atteinte: ${options.limit}`);
           break;
         }
         processed++;
@@ -106,11 +105,9 @@ export class ImportIngredientsCommand extends CommandRunner {
           );
         }
       }
-      console.log(
-        `✅ Import terminé. ${count} ingrédients importés sur ${processed} traités.`,
-      );
+      console.log(`Import terminé: ${count}/${processed} ingrédients traités`);
     } catch (error) {
-      console.error('❌ Erreur générale:', error);
+      console.error('Erreur import:', error);
       throw error;
     }
   }

@@ -17,6 +17,7 @@ interface StockInfo {
   normalizedQuantity: number;
   baseUnit: string;
   dlc?: Date;
+  ingredientId?: string; // ID de l'ingrédient lié au produit (pour matching hiérarchique)
 }
 
 @Injectable()
@@ -148,10 +149,15 @@ export class ElasticsearchService implements OnModuleInit {
       if (stock.product.id && stock.unit) {
         const { value: normalizedQuantity, unit: baseUnit } =
           this.unitConversionService.normalize(stock.quantity, stock.unit);
+
+        // Récupérer l'ingrédient lié au produit (maintenant unique grâce au matching générique)
+        const ingredientId = stock.product.ingredients?.[0]?.id;
+
         stocksMap[stock.product.id] = {
           normalizedQuantity,
           baseUnit,
           dlc: stock.dlc,
+          ingredientId, // Ajouter l'ID de l'ingrédient pour le matching hiérarchique
         };
       }
     }
@@ -506,9 +512,34 @@ export class ElasticsearchService implements OnModuleInit {
     };
   }
 
+  /**
+   * Génère la fonction de scoring pour la disponibilité des ingrédients.
+   *
+   * LOGIQUE AMÉLIORÉE (anti-sur-comptage) :
+   * - Chaque recette demande des ingrédients spécifiques (ex: "eau minérale")
+   * - Chaque produit est lié à un seul ingrédient générique (ex: "eau")
+   * - Le système vérifie si l'ingrédient générique peut satisfaire l'ingrédient spécifique
+   * - Un produit ne compte qu'une seule fois par ingrédient de recette
+   *
+   * @param stocksMap Mapping produit -> informations de stock
+   */
   private _buildAvailabilityScoreFunction(
     stocksMap: Record<string, StockInfo>,
   ) {
+    // Construire un mapping ingredient -> liste des produits disponibles
+    // Ceci permet de gérer le matching hiérarchique : si une recette demande "eau minérale"
+    // mais que l'utilisateur a un produit lié à "eau", on peut quand même le matcher
+    const ingredientToProducts: Record<string, string[]> = {};
+
+    for (const [productId, stockInfo] of Object.entries(stocksMap)) {
+      if (stockInfo.ingredientId) {
+        if (!ingredientToProducts[stockInfo.ingredientId]) {
+          ingredientToProducts[stockInfo.ingredientId] = [];
+        }
+        ingredientToProducts[stockInfo.ingredientId].push(productId);
+      }
+    }
+
     return {
       filter: { match_all: {} },
       script_score: {
@@ -520,21 +551,50 @@ export class ElasticsearchService implements OnModuleInit {
             }
             int totalIngredients = params._source.ingredients.size();
             int availableIngredients = 0;
+            
             for (int i = 0; i < params._source.ingredients.size(); i++) {
               def ingredient = params._source.ingredients.get(i);
-              if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
-                 def stock = params.stocks[ingredient.productId];
-                 if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
-                   availableIngredients++;
-                 }
+              boolean ingredientAvailable = false;
+              
+              // AMÉLIORATION: Vérifier tous les produits liés à cet ingrédient
+              // au lieu de juste le productId spécifique de la recette
+              if (ingredient.id != null && params.ingredientToProducts.containsKey(ingredient.id)) {
+                def availableProductsForIngredient = params.ingredientToProducts[ingredient.id];
+                
+                for (int j = 0; j < availableProductsForIngredient.size(); j++) {
+                  def productId = availableProductsForIngredient.get(j);
+                  if (params.stocks.containsKey(productId)) {
+                    def stock = params.stocks[productId];
+                    if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
+                      ingredientAvailable = true;
+                      break; // Un produit suffit pour cet ingrédient
+                    }
+                  }
+                }
+              }
+              
+              // FALLBACK: Ancien comportement pour compatibilité
+              if (!ingredientAvailable && ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
+                def stock = params.stocks[ingredient.productId];
+                if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
+                  ingredientAvailable = true;
+                }
+              }
+              
+              if (ingredientAvailable) {
+                availableIngredients++;
               }
             }
+            
             if (totalIngredients > 0) {
               availabilityScore = (float)availableIngredients / totalIngredients;
             }
             return availabilityScore;
           `,
-          params: { stocks: stocksMap },
+          params: {
+            stocks: stocksMap,
+            ingredientToProducts: ingredientToProducts,
+          },
         },
       },
       weight: 1.5,

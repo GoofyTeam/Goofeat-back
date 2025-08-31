@@ -7,6 +7,7 @@ import { Command, CommandRunner } from 'nest-commander';
 import { ElasticsearchService } from 'src/common/elasticsearch/elasticsearch.service';
 import { Unit } from 'src/common/units/unit.enums';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
+import { ProductService } from 'src/products/product.service';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import { UserPreferences } from 'src/users/interfaces/user-preferences.interface';
 import { In, Repository } from 'typeorm';
@@ -388,5 +389,85 @@ export class TestPackagingCommand extends CommandRunner {
     }
 
     console.log("\n--- Test d'analyse de packaging terminé ---");
+  }
+}
+
+@Injectable()
+@Command({
+  name: 'test:barcode',
+  description: 'Test barcode scanning with taxonomy matching debug',
+})
+export class TestBarcodeCommand extends CommandRunner {
+  constructor(
+    private readonly productService: ProductService,
+    @InjectRepository(Ingredient)
+    private readonly ingredientRepository: Repository<Ingredient>,
+  ) {
+    super();
+  }
+
+  async run(): Promise<void> {
+    console.log('--- Test de scan de code-barres avec debug taxonomie ---');
+
+    const testBarcode = '3274080005003'; // Bouteille d'eau
+    console.log(`🔍 Test du code-barres: ${testBarcode}`);
+
+    try {
+      // 1. Vérifier les ingrédients existants avec les catégories OFF attendues
+      console.log('\n--- Vérification des ingrédients disponibles ---');
+      const waterCategories = [
+        'en:beverages',
+        'en:waters',
+        'en:spring-waters',
+        'en:mineral-waters',
+        'en:natural-mineral-waters',
+        'en:beverages-and-beverages-preparations',
+        'en:unsweetened-beverages',
+      ];
+
+      for (const category of waterCategories) {
+        const ingredient = await this.ingredientRepository.findOne({
+          where: { offTag: category },
+        });
+        if (ingredient) {
+          console.log(`✅ Trouvé: ${category} → ${ingredient.name}`);
+        } else {
+          console.log(`❌ Absent: ${category}`);
+        }
+      }
+
+      // 2. Test du scan du code-barres
+      console.log(`\n--- Scan du code-barres ${testBarcode} ---`);
+      const product = await this.productService.createFromBarcode(testBarcode);
+
+      if (!product) {
+        console.log('❌ Aucun produit retourné');
+        return;
+      }
+
+      console.log('\n--- Résultat du scan ---');
+      console.log(`Produit: ${product.name}`);
+      console.log(`Code: ${product.code}`);
+      console.log(`Taille packaging: ${product.packagingSize}`);
+      console.log(`Taille unitaire: ${product.unitSize}`);
+      console.log(`Unité par défaut: ${product.defaultUnit}`);
+      console.log(`Ingrédients liés: ${product.ingredients?.length || 0}`);
+
+      if (product.ingredients && product.ingredients.length > 0) {
+        console.log('🎯 Ingrédients trouvés:');
+        product.ingredients.forEach((ing) => {
+          console.log(`  - ${ing.name} (${ing.offTag})`);
+        });
+      } else {
+        console.log('❌ Aucun ingrédient lié au produit');
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du test:', error.message);
+      if (error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
+    }
+
+    console.log('\n--- Test de code-barres terminé ---');
   }
 }

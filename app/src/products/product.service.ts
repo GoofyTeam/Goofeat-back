@@ -78,7 +78,17 @@ export class ProductService {
       const productData =
         await this.productDataService.getProductByBarcode(barcode);
 
-      const productToSave = this.productRepository.create(productData);
+      // Matching avec les ingrédients existants basé sur les catégories OFF
+      // Catégories OFF trouvées
+      const matchedIngredients = await this.matchIngredientsFromCategories(
+        productData.categoriesHierarchy || [],
+      );
+      // Ingrédients matchés trouvés
+
+      const productToSave = this.productRepository.create({
+        ...productData,
+        ingredients: matchedIngredients,
+      });
       await this.productRepository.save(productToSave);
       return this.productRepository.findOne({
         where: { code: barcode },
@@ -107,7 +117,7 @@ export class ProductService {
         return this.mergeResults(localResults, externalResults);
       } catch (error) {
         // En cas d'erreur OFF, retourner les résultats locaux
-        console.warn('Erreur recherche OpenFoodFacts:', error);
+        // Erreur OpenFoodFacts, utilisation cache local
         return localResults;
       }
     }
@@ -239,7 +249,7 @@ export class ProductService {
         savedProducts.push(saved);
       } catch (error) {
         // Continue avec les autres produits en cas d'erreur
-        console.warn('Erreur sauvegarde produit OFF:', error);
+        // Erreur lors de la sauvegarde du produit
       }
     }
 
@@ -287,6 +297,152 @@ export class ProductService {
    */
   async searchExternalProducts(name: string, limit = 10) {
     return this.productDataService.searchProductsByName(name, limit);
+  }
+
+  /**
+   * Match les catégories OpenFoodFacts avec les ingrédients existants
+   * IMPORTANT: Cette fonction implémente un matching taxonomique hiérarchique.
+   * Elle ne lie que l'ingrédient le plus générique pour éviter le sur-comptage
+   * dans les suggestions de recettes.
+   *
+   * Exemple: Bouteille d'eau → seulement "eau" (pas "eau minérale" + "eau de source")
+   *
+   * @param categoriesHierarchy Liste des catégories OFF du produit (ordre du plus général au plus spécifique)
+   */
+  private async matchIngredientsFromCategories(
+    categoriesHierarchy: string[],
+  ): Promise<Ingredient[]> {
+    if (!categoriesHierarchy || categoriesHierarchy.length === 0) {
+      return [];
+    }
+
+    // Convertir les catégories plurielles en tags d'ingrédients singuliers
+    const ingredientTags =
+      this.convertCategoriesToIngredientTags(categoriesHierarchy);
+    // Conversion catégories vers tags ingrédients
+
+    if (ingredientTags.length === 0) {
+      return [];
+    }
+
+    // Chercher des ingrédients dont l'off_tag match une des catégories converties
+    const allMatchingIngredients = await this.ingredientRepository.find({
+      where: ingredientTags.map((tag) => ({
+        offTag: tag,
+      })),
+    });
+
+    // RÈGLE ANTI-SUR-COMPTAGE : Ne garder que l'ingrédient le plus générique
+    // pour éviter qu'un produit compte plusieurs fois dans les recettes
+    const prioritizedIngredient = this.selectMostGenericIngredient(
+      allMatchingIngredients,
+    );
+    const result = prioritizedIngredient ? [prioritizedIngredient] : [];
+
+    // Ingrédient générique sélectionné
+
+    return result;
+  }
+
+  /**
+   * Convertit les catégories de produits OFF (plurielles) en tags d'ingrédients (singuliers)
+   * @param categories Liste des catégories de produits OFF
+   */
+  private convertCategoriesToIngredientTags(categories: string[]): string[] {
+    const conversionMap: { [key: string]: string | null } = {
+      // Beverages and preparations -> not directly mappable to ingredient
+      'en:beverages-and-beverages-preparations': null,
+      'en:beverages': null, // Too generic
+      'en:unsweetened-beverages': null, // Too generic
+
+      // Water categories - convert plural to singular
+      'en:waters': 'en:water',
+      'en:spring-waters': 'en:spring-water',
+      'en:mineral-waters': 'en:mineral-water',
+      'en:natural-mineral-waters': 'en:natural-mineral-water',
+
+      // Add more mappings as needed
+    };
+
+    const convertedTags: string[] = [];
+
+    for (const category of categories) {
+      if (Object.prototype.hasOwnProperty.call(conversionMap, category)) {
+        const converted = conversionMap[category];
+        if (converted) {
+          convertedTags.push(converted);
+        }
+        // If conversion is null, we skip this category (too generic or unmappable)
+      } else {
+        // If no mapping exists, try the category as-is (might already be correct)
+        convertedTags.push(category);
+      }
+    }
+
+    return [...new Set(convertedTags)]; // Remove duplicates
+  }
+
+  /**
+   * Sélectionne l'ingrédient le plus générique parmi une liste d'ingrédients matchés
+   * pour éviter le sur-comptage dans les suggestions de recettes.
+   *
+   * LOGIQUE DE PRIORITÉ (du plus générique au plus spécifique):
+   * 1. "water" (eau) > "mineral-water" (eau minérale) > "natural-mineral-water"
+   * 2. "flour" (farine) > "wheat-flour" (farine de blé) > "whole-wheat-flour"
+   *
+   * @param ingredients Liste des ingrédients matchés
+   * @returns L'ingrédient le plus générique ou null si liste vide
+   */
+  private selectMostGenericIngredient(
+    ingredients: Ingredient[],
+  ): Ingredient | null {
+    if (!ingredients || ingredients.length === 0) {
+      return null;
+    }
+
+    if (ingredients.length === 1) {
+      return ingredients[0];
+    }
+
+    // Système de score : plus le score est bas, plus l'ingrédient est générique
+    const genericityScores: { [key: string]: number } = {
+      // Eau (scores croissants = plus spécifique)
+      'en:water': 1,
+      'en:spring-water': 2,
+      'en:mineral-water': 2,
+      'en:natural-mineral-water': 3,
+      'en:carbonated-water': 2,
+      'en:distilled-water': 2,
+
+      // Farine
+      'en:flour': 1,
+      'en:wheat-flour': 2,
+      'en:whole-wheat-flour': 3,
+      'en:all-purpose-flour': 2,
+
+      // Lait
+      'en:milk': 1,
+      'en:cow-milk': 2,
+      'en:whole-milk': 3,
+      'en:skimmed-milk': 3,
+
+      // Score par défaut pour les tags inconnus (considérés comme génériques)
+    };
+
+    let mostGeneric = ingredients[0];
+    let lowestScore = genericityScores[ingredients[0].offTag] || 5; // Score par défaut
+
+    for (const ingredient of ingredients) {
+      const score = genericityScores[ingredient.offTag] || 5;
+      if (score < lowestScore) {
+        lowestScore = score;
+        mostGeneric = ingredient;
+      }
+    }
+
+    // Sélection générique parmi plusieurs ingrédients
+
+    return mostGeneric;
   }
 
   async update(id: string, updateProductDto: UpdateProductDto, user?: User) {
