@@ -98,7 +98,7 @@ describe('Notifications (e2e)', () => {
       email: testUser.email,
     });
 
-    console.log('Bearer ' + authToken);
+    // Token généré
   });
 
   afterAll(async () => {

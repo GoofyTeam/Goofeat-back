@@ -139,6 +139,11 @@ export class OpenFoodFactsService implements ProductDataService {
         ingredients,
         packagingSize: parsedQuantity.value,
         defaultUnit: parsedQuantity.unit,
+        // Taxonomie OpenFoodFacts pour le matching
+        categories:
+          openFoodFactsProduct.categories?.split(',').map((c) => c.trim()) ||
+          [],
+        categoriesHierarchy: openFoodFactsProduct.categories_hierarchy || [],
       };
 
       return productData;
@@ -154,6 +159,10 @@ export class OpenFoodFactsService implements ProductDataService {
       nutriments: openFoodFactsProduct.nutriments,
       ingredients,
       defaultUnit: packagingInfo.totalUnit,
+      // Taxonomie OpenFoodFacts pour le matching
+      categories:
+        openFoodFactsProduct.categories?.split(',').map((c) => c.trim()) || [],
+      categoriesHierarchy: openFoodFactsProduct.categories_hierarchy || [],
 
       // Informations de packaging détectées
       ...(packagingInfo.isMultipack
@@ -162,8 +171,9 @@ export class OpenFoodFactsService implements ProductDataService {
             unitSize: packagingInfo.unitSize,
           }
         : {
-            // Produit simple
-            packagingSize: packagingInfo.totalQuantity || 1,
+            // Produit simple - une seule unité de la taille totale
+            packagingSize: 1,
+            unitSize: packagingInfo.totalQuantity,
           }),
 
       rawData: {

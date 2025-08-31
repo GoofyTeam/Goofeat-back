@@ -33,6 +33,9 @@ export interface ProductData {
   packagingSize: number;
   defaultUnit: Unit;
   ingredients: Ingredient[];
+  // Taxonomie OpenFoodFacts pour le matching avec les ingrédients
+  categories?: string[];
+  categoriesHierarchy?: string[];
   // Autres
   [key: string]: any; // Propriétés supplémentaires spécifiques à chaque API
 }
