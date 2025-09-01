@@ -18,7 +18,6 @@ export class IngredientsService {
   async findOne(id: string): Promise<Ingredient> {
     const ingredient = await this.ingredientRepository.findOne({
       where: { id },
-      relations: ['category'],
     });
 
     if (!ingredient) {
@@ -31,7 +30,6 @@ export class IngredientsService {
   async searchIngredients(search?: string, limit = 10): Promise<Ingredient[]> {
     const queryBuilder = this.ingredientRepository
       .createQueryBuilder('ingredient')
-      .leftJoinAndSelect('ingredient.category', 'category')
       .take(limit);
 
     if (search && search.trim()) {

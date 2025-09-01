@@ -7,7 +7,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import * as request from 'supertest';
 import { Repository } from 'typeorm';
 import { AppModule } from '../../src/app.module';
-import { Category } from '../../src/categories/entities/category.entity';
 import { ExpirationCheckService } from '../../src/notifications/expiration-check.service';
 import { NotificationService } from '../../src/notifications/notification.service';
 import { Product } from '../../src/products/entities/product.entity';
@@ -19,14 +18,12 @@ describe('Notifications (e2e)', () => {
   let userRepository: Repository<User>;
   let stockRepository: Repository<Stock>;
   let productRepository: Repository<Product>;
-  let categoryRepository: Repository<Category>;
   let jwtService: JwtService;
   let notificationService: NotificationService;
   let expirationCheckService: ExpirationCheckService;
 
   let testUser: User;
   let testProduct: Product;
-  let testCategory: Category;
   let authToken: string;
 
   beforeAll(async () => {
@@ -47,9 +44,6 @@ describe('Notifications (e2e)', () => {
     productRepository = moduleFixture.get<Repository<Product>>(
       getRepositoryToken(Product),
     );
-    categoryRepository = moduleFixture.get<Repository<Category>>(
-      getRepositoryToken(Category),
-    );
     jwtService = moduleFixture.get<JwtService>(JwtService);
     notificationService =
       moduleFixture.get<NotificationService>(NotificationService);
@@ -62,20 +56,12 @@ describe('Notifications (e2e)', () => {
     // Nettoyer les données de test dans le bon ordre (relations)
     // await stockRepository.createQueryBuilder().delete().execute();
     // await productRepository.createQueryBuilder().delete().execute();
-    // await categoryRepository.createQueryBuilder().delete().execute();
     // await userRepository.createQueryBuilder().delete().execute();
-
-    // Créer une catégorie de test
-    testCategory = await categoryRepository.save({
-      name: 'Test Category',
-      description: 'Category for testing',
-    });
 
     // Créer un produit de test
     testProduct = await productRepository.save({
       name: 'Test Product',
       description: 'Product for testing notifications',
-      category: testCategory,
       defaultDlcTime: '7 days',
       barcode: 'TEST123456789',
       imageUrl: 'https://example.com/test-product.jpg',

@@ -248,11 +248,7 @@ describe('RecipeService', () => {
 
       expect(recipeRepository.findOne).toHaveBeenCalledWith({
         where: { id: '1' },
-        relations: [
-          'ingredients',
-          'ingredients.ingredient',
-          'ingredients.ingredient.category',
-        ],
+        relations: ['ingredients', 'ingredients.ingredient'],
       });
       expect(result).toEqual(mockRecipe);
     });
