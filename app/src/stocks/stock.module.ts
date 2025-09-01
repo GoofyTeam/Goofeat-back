@@ -29,6 +29,6 @@ import { StockService } from './stock.service';
     HouseholdModule,
     DlcModule,
   ],
-  exports: [StockLogService, ChildStockService],
+  exports: [StockService, StockLogService, ChildStockService],
 })
 export class StockModule {}

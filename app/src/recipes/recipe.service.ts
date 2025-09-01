@@ -67,7 +67,6 @@ export class RecipeService {
         'ingredients',
         'ingredients.ingredient',
         'ingredients.ingredient.products',
-        'ingredients.ingredient.category',
       ],
     });
 
@@ -140,11 +139,7 @@ export class RecipeService {
   async findOne(id: string): Promise<Recipe> {
     const recipe = await this.recipeRepository.findOne({
       where: { id },
-      relations: [
-        'ingredients',
-        'ingredients.ingredient',
-        'ingredients.ingredient.category',
-      ],
+      relations: ['ingredients', 'ingredients.ingredient'],
     });
 
     if (!recipe) {
@@ -178,11 +173,7 @@ export class RecipeService {
 
     const updatedRecipeWithRelations = await this.recipeRepository.findOne({
       where: { id: id },
-      relations: [
-        'ingredients',
-        'ingredients.ingredient',
-        'ingredients.ingredient.category',
-      ],
+      relations: ['ingredients', 'ingredients.ingredient'],
     });
 
     if (!updatedRecipeWithRelations) {

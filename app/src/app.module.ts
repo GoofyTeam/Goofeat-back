@@ -20,6 +20,7 @@ import { RecipeModule } from './recipes/recipe.module';
 import { StockModule } from './stocks/stock.module';
 import { UsersModule } from './users/users.module';
 import { CommandsModule } from './commands/commands.module';
+import { OcrReceiptModule } from './ocr-receipt/ocr-receipt.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { CommandsModule } from './commands/commands.module';
     ExternalApisModule,
     UnitsModule,
     CommandsModule,
+    OcrReceiptModule,
     MailerModule.forRootAsync({
       useFactory: () => ({
         transport: {

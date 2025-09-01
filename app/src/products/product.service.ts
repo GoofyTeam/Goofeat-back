@@ -300,6 +300,25 @@ export class ProductService {
   }
 
   /**
+   * Trouve un produit par son code-barres
+   */
+  async findByBarcode(barcode: string): Promise<Product | null> {
+    return this.productRepository.findOne({
+      where: { code: barcode },
+      relations: ['categories', 'ingredients'],
+    });
+  }
+
+  /**
+   * Récupère tous les produits pour le matching OCR
+   */
+  async findAllForMatching(): Promise<Product[]> {
+    return this.productRepository.find({
+      select: ['id', 'name'],
+    });
+  }
+
+  /**
    * Match les catégories OpenFoodFacts avec les ingrédients existants
    * IMPORTANT: Cette fonction implémente un matching taxonomique hiérarchique.
    * Elle ne lie que l'ingrédient le plus générique pour éviter le sur-comptage
