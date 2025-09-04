@@ -14,6 +14,14 @@ async function bootstrap() {
   });
   app.setGlobalPrefix('api');
 
+  // Enable CORS so the frontend (Expo web/native) can call the API
+  app.enableCors({
+    origin: true, // Reflect request origin
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -46,27 +46,47 @@ import { OcrReceiptModule } from './ocr-receipt/ocr-receipt.module';
     CommandsModule,
     OcrReceiptModule,
     MailerModule.forRootAsync({
-      useFactory: () => ({
-        transport: {
-          host: process.env.SMTP_HOST,
-          port: Number(process.env.SMTP_PORT),
-          secure: false,
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD,
+      useFactory: () => {
+        const smtpHost = process.env.SMTP_HOST;
+        const smtpPort = Number(process.env.SMTP_PORT ?? 587);
+        const smtpUser = process.env.SMTP_USER;
+        const smtpPass = process.env.SMTP_PASSWORD;
+        const hasSmtp = Boolean(smtpHost);
+        const useAuth = Boolean(smtpUser && smtpPass);
+
+        const transport = hasSmtp
+          ? {
+              host: smtpHost,
+              port: smtpPort,
+              secure: false,
+              ...(useAuth
+                ? {
+                    auth: {
+                      user: smtpUser as string,
+                      pass: smtpPass as string,
+                    },
+                  }
+                : {}),
+            }
+          : {
+              // Dev fallback: do not attempt network connection; log as JSON
+              jsonTransport: true,
+            };
+
+        return {
+          transport,
+          defaults: {
+            from: process.env.SMTP_FROM,
           },
-        },
-        defaults: {
-          from: process.env.SMTP_FROM,
-        },
-        template: {
-          dir: process.cwd() + '/templates',
-          adapter: new HandlebarsAdapter(),
-          options: {
-            strict: true,
+          template: {
+            dir: process.cwd() + '/templates',
+            adapter: new HandlebarsAdapter(),
+            options: {
+              strict: true,
+            },
           },
-        },
-      }),
+        };
+      },
     }),
   ],
   // controllers: process.env.NODE_ENV !== 'production' ? [AppController] : [],
