@@ -8,6 +8,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginThrottlingGuard } from './guards/login-throttling.guard';
 import { LoginThrottlingService } from './login-throttling.service';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
+import { AppleOAuthGuard } from './guards/apple-oauth.guard';
 import { AppleStrategy } from './strategies/apple.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -19,12 +21,19 @@ import { LocalStrategy } from './strategies/local.strategy';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION') || '90d',
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET environment variable is required');
+        }
+        return {
+          secret,
+          signOptions: {
+            // Keep short-lived access tokens when not using refresh tokens
+            expiresIn: configService.get<string>('JWT_EXPIRATION') || '15m',
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     UsersModule,
@@ -39,6 +48,8 @@ import { LocalStrategy } from './strategies/local.strategy';
     LocalStrategy,
     LoginThrottlingService,
     LoginThrottlingGuard,
+    GoogleOAuthGuard,
+    AppleOAuthGuard,
   ],
   exports: [AuthService, JwtModule, JwtStrategy, LocalStrategy],
 })
