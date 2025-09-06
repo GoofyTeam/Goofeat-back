@@ -188,3 +188,5 @@ data "aws_iam_policy_document" "task_policy" {
     effect    = "Allow"
   }
 }
+
+data "aws_caller_identity" "current" {}
