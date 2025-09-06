@@ -13,12 +13,17 @@
           inherit system;
           config.allowUnfree = true;
         };
+        tf = pkgs.terraform.withPlugins (p: [
+          p.aws
+          # add others if you need them:
+          # p.random p.null p.local p.tls p.archive p.template
+        ]);
       in {
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pkgs.terraform pkgs.yarn pkgs.awscli2 ];
+          buildInputs = [ tf pkgs.yarn pkgs.awscli2 ];
 
           shellHook = ''
-            echo "Terraform environment ready"
+            echo "Terraform environment ready (Nix-managed providers)"
           '';
         };
       });
