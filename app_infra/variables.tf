@@ -62,6 +62,11 @@ variable "file_name" {
   default     = "imagedefinitions.json"
 }
 
+variable "db_host" {
+  type        = string
+  description = "Host"
+}
+
 variable "db_username" {
   type        = string
   description = "Master username for the database"
