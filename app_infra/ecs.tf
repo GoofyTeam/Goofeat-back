@@ -35,16 +35,16 @@ resource "aws_ecs_task_definition" "goofeat_app" {
       },
       secrets = [
         {
-          name      = "DB_HOST",
-          valueFrom = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:nestjs-db-host"
+          name      = "DB_HOST"
+          valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_HOST::"
         },
         {
-          name      = "DB_USER",
-          valueFrom = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:nestjs-db-user"
+          name      = "DB_USER"
+          valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_USER::"
         },
         {
-          name      = "DB_PASS",
-          valueFrom = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:nestjs-db-password"
+          name      = "DB_PASS"
+          valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_PASS::"
         }
       ]
     }

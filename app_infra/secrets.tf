@@ -1,4 +1,4 @@
-# secret.tf
+# secrets.tf
 
 resource "aws_secretsmanager_secret" "ghcr_credentials" {
   name = "ghcr-creds"
