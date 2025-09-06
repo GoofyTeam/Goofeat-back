@@ -1,3 +1,5 @@
+import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -11,6 +13,7 @@ import { LoggerMiddleware } from './common/logger/logger.middleware';
 import { LoggerModule } from './common/logger/logger.module';
 import { SerializerModule } from './common/serializer/serializer.module';
 import { UnitsModule } from './common/units/units.module';
+import { HouseholdModule } from './households/household.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProductModule } from './products/product.module';
 import { RecipeModule } from './recipes/recipe.module';
@@ -32,11 +35,34 @@ import { UsersModule } from './users/users.module';
     ProductModule,
     RecipeModule,
     StockModule,
+    HouseholdModule,
     NotificationsModule,
     EventEmitterModule.forRoot(),
-
     ElasticsearchModule,
     UnitsModule,
+    MailerModule.forRootAsync({
+      useFactory: () => ({
+        transport: {
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT),
+          secure: false,
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASSWORD,
+          },
+        },
+        defaults: {
+          from: process.env.SMTP_FROM,
+        },
+        template: {
+          dir: process.cwd() + '/templates',
+          adapter: new HandlebarsAdapter(),
+          options: {
+            strict: true,
+          },
+        },
+      }),
+    }),
   ],
   controllers: process.env.NODE_ENV !== 'production' ? [AppController] : [],
   providers: [AppService],

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -18,8 +19,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
+import { User } from 'src/users/entity/user.entity';
 import { CreateProductDto } from './dto/create-product.dto';
+import { FilterProductDto, ProductTypeFilter } from './dto/filter-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
 import { ProductService } from './product.service';
@@ -29,7 +33,11 @@ import { ProductService } from './product.service';
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
-  @ApiOperation({ summary: 'Créer un nouveau produit' })
+  @ApiOperation({
+    summary: 'Créer un nouveau produit manuel',
+    description:
+      "Créer un produit personnalisé sans code-barres, associé à l'utilisateur connecté",
+  })
   @ApiBody({ type: CreateProductDto })
   @ApiResponse({
     status: 201,
@@ -37,28 +45,76 @@ export class ProductController {
     type: Product,
   })
   @ApiResponse({ status: 400, description: 'Requête invalide' })
+  @ApiResponse({ status: 401, description: 'Authentification requise' })
   @Post()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @SerializationGroups('product:read')
-  create(@Body() createProductDto: CreateProductDto) {
-    return this.productService.create(createProductDto);
+  create(
+    @Body() createProductDto: CreateProductDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.productService.create(createProductDto, user);
   }
 
-  @ApiOperation({ summary: 'Récupérer tous les produits' })
+  @ApiOperation({
+    summary: 'Récupérer tous les produits avec filtres avancés',
+    description:
+      'Liste paginée des produits avec recherche, filtres par type et possibilité de voir uniquement ses produits manuels',
+  })
   @ApiResponse({
     status: 200,
     description: 'Liste des produits récupérée avec succès',
     type: [Product],
   })
   @ApiQuery({
-    name: 'groups',
+    name: 'search',
     required: false,
-    description: 'Groupes de sérialisation (séparés par des virgules)',
-    example: 'product:list,default',
+    description: 'Recherche par nom de produit',
+    example: 'Nutella',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ProductTypeFilter,
+    description: 'Filtrer par type de produit',
+    example: ProductTypeFilter.ALL,
+  })
+  @ApiQuery({
+    name: 'onlyMyProducts',
+    required: false,
+    type: Boolean,
+    description:
+      'Afficher uniquement mes produits manuels (nécessite une authentification)',
+    example: false,
+  })
+  @ApiQuery({
+    name: 'code',
+    required: false,
+    description: 'Recherche par code-barres exact',
+    example: '3017620422003',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Nombre maximum de résultats',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    type: Number,
+    description: 'Décalage pour la pagination',
+    example: 0,
   })
   @SerializationGroups('product:list', 'default')
   @Get()
-  findAll(@Query('groups') groups?: string) {
-    return this.productService.findAll();
+  findAll(
+    @Query() filterDto: Partial<FilterProductDto>,
+    @CurrentUser() user?: User,
+  ) {
+    return this.productService.findAll(filterDto, user);
   }
 
   @ApiOperation({ summary: 'Récupérer un produit par son ID' })
@@ -108,7 +164,11 @@ export class ProductController {
     return product;
   }
 
-  @ApiOperation({ summary: 'Mettre à jour un produit' })
+  @ApiOperation({
+    summary: 'Mettre à jour un produit',
+    description:
+      'Seuls les créateurs peuvent modifier leurs produits manuels. Les produits avec code-barres ne peuvent pas être modifiés.',
+  })
   @ApiParam({
     name: 'id',
     description: 'ID du produit',
@@ -121,13 +181,28 @@ export class ProductController {
     type: Product,
   })
   @ApiResponse({ status: 404, description: 'Produit non trouvé' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Permission refusée - Vous ne pouvez modifier que vos propres produits',
+  })
   @Patch(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @SerializationGroups('product:read')
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.productService.update(id, updateProductDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.productService.update(id, updateProductDto, user);
   }
 
-  @ApiOperation({ summary: 'Supprimer un produit' })
+  @ApiOperation({
+    summary: 'Supprimer un produit',
+    description:
+      'Seuls les créateurs peuvent supprimer leurs produits manuels. Les produits avec code-barres ne peuvent pas être supprimés.',
+  })
   @ApiParam({
     name: 'id',
     description: 'ID du produit',
@@ -135,9 +210,15 @@ export class ProductController {
   })
   @ApiResponse({ status: 200, description: 'Produit supprimé avec succès' })
   @ApiResponse({ status: 404, description: 'Produit non trouvé' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Permission refusée - Vous ne pouvez supprimer que vos propres produits',
+  })
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
-  remove(@Param('id') id: string) {
-    return this.productService.remove(id);
+  @ApiBearerAuth()
+  remove(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.productService.remove(id, user);
   }
 }

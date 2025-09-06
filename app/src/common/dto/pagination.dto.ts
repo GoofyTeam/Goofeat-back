@@ -12,7 +12,7 @@ export class PaginationDto {
   @IsInt()
   @Min(1)
   @IsOptional()
-  page: number = 1;
+  page?: number = 1;
 
   @ApiPropertyOptional({
     description: "Nombre d'éléments par page",
@@ -25,5 +25,16 @@ export class PaginationDto {
   @Min(1)
   @Max(100)
   @IsOptional()
-  limit: number = 10;
+  limit?: number = 10;
+
+  @ApiPropertyOptional({
+    description: 'Décalage pour la pagination',
+    default: 0,
+    minimum: 0,
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  offset?: number = 0;
 }

@@ -197,3 +197,4 @@ cython_debug/
 node_modules
 .windsurf
 app/firebase_admin-SDK.json
+CLAUDE.md
