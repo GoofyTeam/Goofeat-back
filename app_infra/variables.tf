@@ -77,3 +77,13 @@ variable "db_password" {
   description = "Master password for the database"
   sensitive   = true
 }
+
+variable "db_port" {
+  type        = number
+  description = "DB port"
+}
+
+variable "db_name" {
+  type        = string
+  description = "Database name"
+}

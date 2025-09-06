@@ -9,7 +9,7 @@ resource "aws_iam_role" "codepipeline_role" {
   name = "goofeat_codepipeline_role"
 
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [{
       Action    = "sts:AssumeRole"
       Effect    = "Allow"
@@ -26,8 +26,8 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "s3:GetObject",
           "s3:GetObjectVersion",
           "s3:GetBucketVersioning",
@@ -42,16 +42,16 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         ]
       },
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "codebuild:BatchGetBuilds",
           "codebuild:StartBuild",
         ]
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "cloudformation:DescribeStacks",
           "kms:GenerateDataKey",
           "iam:GetRole",
@@ -101,7 +101,7 @@ resource "aws_codepipeline" "codepipeline" {
       provider         = "GitHub"
       version          = "1"
       output_artifacts = ["source_output"]
-      configuration    = {
+      configuration = {
         Owner      = var.github_repo_owner
         Repo       = var.github_repo_name
         Branch     = var.github_branch
@@ -113,7 +113,7 @@ resource "aws_codepipeline" "codepipeline" {
   stage {
     name = "Build"
     action {
-      name             = "Build"
+      name = "Build"
 
       category         = "Build"
       owner            = "AWS"
@@ -142,7 +142,7 @@ resource "aws_codepipeline" "codepipeline" {
       configuration = {
         ClusterName = var.cluster_name
         ServiceName = var.service_name
-        FileName = "${var.file_name}"
+        FileName    = "${var.file_name}"
       }
     }
   }
@@ -197,17 +197,17 @@ resource "aws_codebuild_project" "goofeat_app" {
 }
 
 resource "aws_iam_role" "codebuild_role" {
-  name               = "goofeat_codebuild_role"
+  name = "goofeat_codebuild_role"
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
-        Action    = "sts:AssumeRole"
+        Action = "sts:AssumeRole"
         Principal = {
           Service = "codebuild.amazonaws.com"
         }
-        Effect    = "Allow"
-        Sid       = "TrustPolicyStatementThatAllowsEC2ServiceToAssumeTheAttachedRole"
+        Effect = "Allow"
+        Sid    = "TrustPolicyStatementThatAllowsEC2ServiceToAssumeTheAttachedRole"
       },
     ]
   })
@@ -240,7 +240,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "arn:aws:s3:::${aws_s3_bucket.codepipeline_bucket.bucket}",
           "arn:aws:s3:::${aws_s3_bucket.codepipeline_bucket.bucket}/*"
         ]
-        Effect   = "Allow"
+        Effect = "Allow"
       },
       {
         Action = [
@@ -264,8 +264,8 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         Effect   = "Allow"
       },
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "kms:Decrypt",
           "kms:GenerateDataKey"
         ]
@@ -281,7 +281,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "codebuild:BatchGetReports"
         ]
         Resource = "*"
-      } 
+      }
     ]
   })
 }

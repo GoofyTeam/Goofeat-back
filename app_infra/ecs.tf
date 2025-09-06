@@ -14,7 +14,7 @@ resource "aws_ecs_task_definition" "goofeat_app" {
   container_definitions = jsonencode([
     {
       name      = "goofeat-app",
-      image     = "ghcr.io/goofyteam/goofeat-back:${var.image_tag}",
+      image     = local.image_ref,
       essential = true,
       portMappings = [
         {
@@ -34,18 +34,11 @@ resource "aws_ecs_task_definition" "goofeat_app" {
         credentialsParameter = aws_secretsmanager_secret.ghcr_credentials.arn
       },
       secrets = [
-        {
-          name      = "DB_HOST"
-          valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_HOST::"
-        },
-        {
-          name      = "DB_USER"
-          valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_USER::"
-        },
-        {
-          name      = "DB_PASS"
-          valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_PASS::"
-        }
+        { name = "DB_HOST", valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_HOST::" },
+        { name = "DB_PORT", valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_PORT::" },
+        { name = "DB_USERNAME", valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_USERNAME::" },
+        { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_PASSWORD::" },
+        { name = "DB_DATABASE", valueFrom = "${aws_secretsmanager_secret.nestjs_db.arn}:DB_DATABASE::" },
       ]
     }
   ])
@@ -67,8 +60,8 @@ resource "aws_ecs_service" "goofeat_app" {
   desired_count   = 1
   launch_type     = "FARGATE"
   network_configuration {
-    subnets         = [aws_subnet.app_subnet_1.id, aws_subnet.app_subnet_2.id]
-    security_groups = [aws_security_group.goofeat_app.id]
+    subnets          = [aws_subnet.app_subnet_1.id, aws_subnet.app_subnet_2.id]
+    security_groups  = [aws_security_group.goofeat_app.id]
     assign_public_ip = true
   }
   load_balancer {
@@ -115,11 +108,11 @@ resource "aws_lb_target_group" "goofeat_app" {
 }
 
 resource "aws_lb" "goofeat_app" {
-  name               = "goofeat-app"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.goofeat_app.id]
-  subnets            = [aws_subnet.app_subnet_1.id, aws_subnet.app_subnet_2.id]
+  name                       = "goofeat-app"
+  internal                   = false
+  load_balancer_type         = "application"
+  security_groups            = [aws_security_group.goofeat_app.id]
+  subnets                    = [aws_subnet.app_subnet_1.id, aws_subnet.app_subnet_2.id]
   enable_deletion_protection = false
   tags = {
     Name = "goofeat-app"
@@ -151,7 +144,7 @@ resource "aws_lb_listener_rule" "goofeat_app" {
 }
 
 resource "aws_iam_role" "task_definition_role" {
-  name = "goofeat_task_definition"
+  name               = "goofeat_task_definition"
   assume_role_policy = data.aws_iam_policy_document.task_assume_role_policy.json
 }
 
@@ -167,8 +160,8 @@ data "aws_iam_policy_document" "task_assume_role_policy" {
 }
 
 resource "aws_iam_role_policy" "task_definition_policy" {
-  name = "goofeat_task_definition_policy"
-  role = aws_iam_role.task_definition_role.id
+  name   = "goofeat_task_definition_policy"
+  role   = aws_iam_role.task_definition_role.id
   policy = data.aws_iam_policy_document.task_policy.json
 }
 
