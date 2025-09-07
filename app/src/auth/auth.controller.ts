@@ -7,6 +7,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -25,6 +26,9 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { LoginThrottlingGuard } from './guards/login-throttling.guard';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
+import { AppleOAuthGuard } from './guards/apple-oauth.guard';
+import { Response } from 'express';
 
 interface RequestWithUser extends Request {
   user: User;
@@ -39,7 +43,7 @@ export class AuthController {
   ) {}
 
   @Get('google')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleOAuthGuard)
   @ApiOperation({ summary: 'Authentification Google OAuth' })
   async googleAuth() {
     // Cette méthode ne sera pas exécutée,
@@ -50,24 +54,22 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   @ApiOperation({ summary: 'Callback Google OAuth' })
   @ApiResponse({ status: 200, description: 'Connexion réussie avec Google' })
-  googleAuthRedirect(@Req() req: RequestWithUser) {
+  googleAuthRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
     const user = req.user;
     const token = this.authService.generateJwtToken(user);
 
-    return {
-      access_token: token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        profilePicture: user.profilePicture,
-      },
-    };
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
+    const base = frontendUrl.replace(/\/$/, '');
+    const redirectUrl = `${base}/oauth/callback#access_token=${encodeURIComponent(
+      token,
+    )}`;
+
+    return res.redirect(redirectUrl);
   }
 
   @Get('apple')
-  @UseGuards(AuthGuard('apple'))
+  @UseGuards(AppleOAuthGuard)
   @ApiOperation({ summary: 'Authentification Apple OAuth' })
   async appleAuth() {
     // Cette méthode ne sera pas exécutée,
@@ -78,21 +80,19 @@ export class AuthController {
   @UseGuards(AuthGuard('apple'))
   @ApiOperation({ summary: 'Callback Apple OAuth' })
   @ApiResponse({ status: 200, description: 'Connexion réussie avec Apple' })
-  appleAuthRedirect(@Req() req: RequestWithUser) {
+  appleAuthRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
     const user = req.user;
-
     const token = this.authService.generateJwtToken(user);
 
-    return {
-      access_token: token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        profilePicture: user.profilePicture,
-      },
-    };
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
+    const base = frontendUrl.replace(/\/$/, '');
+    // Use URL fragment to avoid leaking token via referrers and logs
+    const redirectUrl = `${base}/oauth/callback#access_token=${encodeURIComponent(
+      token,
+    )}`;
+
+    return res.redirect(redirectUrl);
   }
 
   @Get('profile')
