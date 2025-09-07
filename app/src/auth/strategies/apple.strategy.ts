@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
 import { Strategy, StrategyOptions } from 'passport-apple';
 import { User } from '../../users/entity/user.entity';
 import { AuthService, OAuthUser } from '../auth.service';
+import { OAuthStateManager } from '../utils/oauth-state';
 
 @Injectable()
 export class AppleStrategy extends PassportStrategy(Strategy, 'apple') {
@@ -23,6 +24,7 @@ export class AppleStrategy extends PassportStrategy(Strategy, 'apple') {
       callbackURL: configService.get<string>('APPLE_CALLBACK_URL') ?? '',
       scope: ['email', 'name'],
       passReqToCallback: true,
+      // We'll inject `state` at runtime via guard and verify here
     };
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     super(options);
@@ -45,6 +47,18 @@ export class AppleStrategy extends PassportStrategy(Strategy, 'apple') {
     profile: { email?: string; id?: string },
     done: (error: Error | null, user?: User | null) => void,
   ): Promise<void> {
+    // Verify anti-CSRF state
+    const state = (req.query?.state as string) || undefined;
+    const secret =
+      this.configService.get<string>('OAUTH_STATE_SECRET') ||
+      this.configService.get<string>('JWT_SECRET');
+    const ok = secret
+      ? new OAuthStateManager(secret).verifyAndClear(req, req.res, state)
+      : false;
+    if (!ok) {
+      return done(new UnauthorizedException('Invalid OAuth state'));
+    }
+
     // Apple ne fournit pas toujours les informations de profil
     // Les informations sont généralement disponibles uniquement lors de la première connexion
     // Nous devons donc les extraire du token ou de la requête
