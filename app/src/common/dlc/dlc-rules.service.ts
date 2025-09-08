@@ -173,6 +173,11 @@ export class DlcRulesService {
     source: DlcPrediction['source'],
     confidence: DlcPrediction['confidence'],
   ): DlcPrediction {
+    // Vérifier que dlcTime est une string valide
+    if (typeof dlcTime !== 'string' || !dlcTime) {
+      return { days: 7, source, confidence: 'low' };
+    }
+
     const matches = dlcTime.match(/(\d+)\s*(days?|weeks?|months?|years?)/i);
 
     if (!matches) {

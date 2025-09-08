@@ -8,6 +8,7 @@ import { Recipe } from 'src/recipes/entities/recipe.entity';
 import { DebugSyncCommand } from './debug.command';
 import { ImportIngredientsCommand } from './import.command';
 import { ReindexRecipesCommand } from './reindex.command';
+import { ImportSpoonacularInstructionsCommand } from './spoonacular-instructions.command';
 import { ImportSpoonacularRecipesCommand } from './spoonacular.command';
 import {
   TestBarcodeCommand,
@@ -37,6 +38,7 @@ import {
     // Import commands
     ImportIngredientsCommand,
     ImportSpoonacularRecipesCommand,
+    ImportSpoonacularInstructionsCommand,
   ],
 })
 export class CommandsModule {}

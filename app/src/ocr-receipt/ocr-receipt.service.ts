@@ -325,11 +325,9 @@ export class OcrReceiptService {
       ignoreLocation: true, // Ignore la position dans le texte
     });
 
-    // Rechercher des correspondances pour chaque item
     for (const item of parsedItems) {
       const suggestions: ProductSuggestion[] = [];
 
-      // Normaliser le nom pour la recherche
       const normalizedName = this.normalizeProductName(item.productName);
       this.logger.debug(
         `Recherche pour: "${item.productName}" → "${normalizedName}"`,
@@ -373,7 +371,7 @@ export class OcrReceiptService {
   }
 
   /**
-   * Construit le résultat final
+   * Construit le résu  ltat final
    */
   private buildReceiptResult(
     receipt: Receipt,

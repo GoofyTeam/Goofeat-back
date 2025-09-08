@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -27,6 +28,7 @@ import { Stock } from './entities/stock.entity';
 import { StockService } from './stock.service';
 
 @ApiTags('stocks')
+@ApiBearerAuth()
 @Controller('stock')
 @UseGuards(AuthGuard('jwt'))
 export class StockController {
@@ -46,6 +48,23 @@ export class StockController {
     return this.stockService.create(createStockDto, user);
   }
 
+  @ApiOperation({ summary: 'Créer plusieurs stocks en une seule requête' })
+  @ApiBody({ type: [CreateStockDto] })
+  @ApiResponse({
+    status: 201,
+    description: 'Stocks créés avec succès',
+    type: [Stock],
+  })
+  @ApiResponse({ status: 400, description: 'Requête invalide' })
+  @Post('bulk')
+  @SerializationGroups('stock:read')
+  createBulk(
+    @Body() createStockDtos: CreateStockDto[],
+    @CurrentUser() user: User,
+  ) {
+    return this.stockService.createBulk(createStockDtos, user);
+  }
+
   @ApiOperation({ summary: 'Récupérer tous les stocks' })
   @ApiResponse({
     status: 200,
@@ -55,6 +74,7 @@ export class StockController {
   @Get()
   @SerializationGroups('stock:list')
   findAll(@CurrentUser() user: User, @Query() filterStockDto: FilterStockDto) {
+    console.log(filterStockDto);
     return this.stockService.findAll(user, filterStockDto);
   }
 
