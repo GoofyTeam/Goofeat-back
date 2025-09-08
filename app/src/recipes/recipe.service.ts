@@ -152,6 +152,16 @@ export class RecipeService {
   async update(id: string, updateRecipeDto: UpdateRecipeDto): Promise<Recipe> {
     const existingRecipe = await this.findOne(id);
 
+    // Vérifier que la recette n'est pas une recette externe (Spoonacular, etc.)
+    if (
+      existingRecipe.externalSource &&
+      existingRecipe.externalSource !== 'manual'
+    ) {
+      throw new BadRequestException(
+        `Impossible de modifier une recette externe (source: ${existingRecipe.externalSource})`,
+      );
+    }
+
     const { ingredients: ingredientsDto, ...recipeData } = updateRecipeDto;
 
     this.recipeRepository.merge(existingRecipe, recipeData);
@@ -192,6 +202,14 @@ export class RecipeService {
 
   async remove(id: string): Promise<void> {
     const recipe = await this.findOne(id);
+
+    // Vérifier que la recette n'est pas une recette externe (Spoonacular, etc.)
+    if (recipe.externalSource && recipe.externalSource !== 'manual') {
+      throw new BadRequestException(
+        `Impossible de supprimer une recette externe (source: ${recipe.externalSource})`,
+      );
+    }
+
     await this.recipeRepository.remove(recipe);
     this.eventEmitter.emit(RecipeEventName.RecipeDeleted, recipe);
   }

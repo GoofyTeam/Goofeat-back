@@ -31,6 +31,18 @@ export class StockService {
     private dlcRulesService: DlcRulesService,
   ) {}
 
+  async createBulk(
+    createStockDtos: CreateStockDto[],
+    user: User,
+  ): Promise<Stock[]> {
+    const stocks: Stock[] = [];
+    for (const dto of createStockDtos) {
+      const stock = await this.create(dto, user);
+      stocks.push(stock);
+    }
+    return stocks;
+  }
+
   async create(createStockDto: CreateStockDto, user: User): Promise<Stock> {
     const product = await this.productRepository.findOne({
       where: { id: createStockDto.productId },
