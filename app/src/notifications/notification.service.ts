@@ -6,6 +6,7 @@ import { FirebaseConfig } from '../common/firebase/firebase.config';
 import { Stock } from '../stocks/entities/stock.entity';
 import { User } from '../users/entity/user.entity';
 import { NotificationType } from './enums/notification-type.enum';
+import { StockWithCriticality } from './interfaces/stock-with-criticality.interface';
 
 export interface NotificationPayload {
   title: string;
@@ -181,29 +182,124 @@ export class NotificationService {
     }
   }
 
-  createExpirationNotification(expiredStocks: Stock[]): NotificationPayload {
-    const count = expiredStocks.length;
-    const firstProduct = expiredStocks[0]?.product?.name || 'produit';
+  createExpirationNotification(
+    expiredStocks: StockWithCriticality[] | Stock[],
+  ): NotificationPayload {
+    const stocksWithCriticality =
+      this.ensureStockWithCriticality(expiredStocks);
+    const count = stocksWithCriticality.length;
 
-    if (count === 1) {
-      return {
-        title: '⚠️ Produit bientôt périmé',
-        body: `${firstProduct} expire dans moins de 3 jours !`,
-        data: {
-          type: NotificationType.EXPIRATION,
-          stockId: expiredStocks[0].id,
-          productName: firstProduct,
-        },
-      };
+    const expired = stocksWithCriticality.filter(
+      (s) => s.criticality === 'expired',
+    );
+    const critical = stocksWithCriticality.filter(
+      (s) => s.criticality === 'critical',
+    );
+    const urgent = stocksWithCriticality.filter(
+      (s) => s.criticality === 'urgent',
+    );
+    const warning = stocksWithCriticality.filter(
+      (s) => s.criticality === 'warning',
+    );
+
+    let title = '';
+    let body = '';
+
+    if (expired.length > 0) {
+      title = '🚨 Produits périmés !';
+    } else if (critical.length > 0) {
+      title = "⚠️ Produits à consommer aujourd'hui !";
+    } else if (urgent.length > 0) {
+      title = '⏰ Produits à consommer rapidement';
     } else {
-      return {
-        title: '⚠️ Produits bientôt périmés',
-        body: `${count} produits expirent dans moins de 3 jours, dont ${firstProduct}`,
-        data: {
-          type: NotificationType.EXPIRATION,
-          count: count.toString(),
-        },
-      };
+      title = '📅 Produits à surveiller';
     }
+
+    // Corps du message avec détails par criticité
+    const messages: string[] = [];
+    if (expired.length > 0) {
+      const names = expired
+        .slice(0, 2)
+        .map((s) => s.product?.name)
+        .join(', ');
+      messages.push(
+        `${expired.length} périmé(s): ${names}${expired.length > 2 ? '...' : ''}`,
+      );
+    }
+    if (critical.length > 0) {
+      const names = critical
+        .slice(0, 2)
+        .map((s) => s.product?.name)
+        .join(', ');
+      messages.push(
+        `${critical.length} expire(nt) aujourd'hui: ${names}${critical.length > 2 ? '...' : ''}`,
+      );
+    }
+    if (urgent.length > 0) {
+      const names = urgent
+        .slice(0, 2)
+        .map((s) => s.product?.name)
+        .join(', ');
+      messages.push(
+        `${urgent.length} dans 1-3 jours: ${names}${urgent.length > 2 ? '...' : ''}`,
+      );
+    }
+    if (warning.length > 0 && messages.length < 2) {
+      messages.push(`${warning.length} dans 4-7 jours`);
+    }
+
+    body = messages.join(' | ');
+
+    return {
+      title,
+      body: body || `${count} produit(s) à surveiller`,
+      data: {
+        type: NotificationType.EXPIRATION,
+        count: count.toString(),
+        expired: expired.length.toString(),
+        critical: critical.length.toString(),
+        urgent: urgent.length.toString(),
+        warning: warning.length.toString(),
+      },
+    };
+  }
+
+  /**
+   * Ensures stocks have criticality information, converting if necessary
+   */
+  private ensureStockWithCriticality(
+    stocks: StockWithCriticality[] | Stock[],
+  ): StockWithCriticality[] {
+    // Check if already StockWithCriticality
+    if (stocks.length === 0 || 'criticality' in stocks[0]) {
+      return stocks as StockWithCriticality[];
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return (stocks as Stock[]).map((stock): StockWithCriticality => {
+      const dlcDate = new Date(stock.dlc);
+      const daysUntilExpiry = Math.ceil(
+        (dlcDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      const criticality =
+        daysUntilExpiry <= 0
+          ? 'expired'
+          : daysUntilExpiry <= 1
+            ? 'critical'
+            : daysUntilExpiry <= 3
+              ? 'urgent'
+              : daysUntilExpiry <= 7
+                ? 'warning'
+                : 'normal';
+
+      return {
+        ...stock,
+        daysUntilExpiry,
+        criticality,
+      } as StockWithCriticality;
+    });
   }
 }

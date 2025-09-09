@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -110,6 +111,7 @@ export class ProductController {
   })
   @SerializationGroups('product:list', 'default')
   @Get()
+  @ApiBearerAuth()
   findAll(
     @Query() filterDto: Partial<FilterProductDto>,
     @CurrentUser() user?: User,
@@ -138,6 +140,12 @@ export class ProductController {
   @SerializationGroups('product:read')
   @Get(':id')
   findOne(@Param('id') id: string, @Query('groups') groups?: string) {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      throw new BadRequestException(`Invalid UUID format: ${id}`);
+    }
+
     return this.productService.findOne(id);
   }
 

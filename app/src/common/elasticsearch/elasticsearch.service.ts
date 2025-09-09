@@ -146,18 +146,21 @@ export class ElasticsearchService implements OnModuleInit {
   private createStocksMap(stocks: Stock[]) {
     const stocksMap: Record<string, StockInfo> = {};
     for (const stock of stocks) {
-      if (stock.product.id && stock.unit) {
+      if (
+        stock.product.id &&
+        stock.unit &&
+        stock.product.ingredients?.[0]?.id
+      ) {
         const { value: normalizedQuantity, unit: baseUnit } =
           this.unitConversionService.normalize(stock.quantity, stock.unit);
 
-        // Récupérer l'ingrédient lié au produit (maintenant unique grâce au matching générique)
-        const ingredientId = stock.product.ingredients?.[0]?.id;
+        const ingredientId = stock.product.ingredients[0].id;
 
-        stocksMap[stock.product.id] = {
+        stocksMap[ingredientId] = {
           normalizedQuantity,
           baseUnit,
           dlc: stock.dlc,
-          ingredientId, // Ajouter l'ID de l'ingrédient pour le matching hiérarchique
+          ingredientId,
         };
       }
     }
@@ -167,8 +170,12 @@ export class ElasticsearchService implements OnModuleInit {
   private createDlcMap(stocks: Stock[]) {
     const dlcMap: Record<string, string> = {};
     for (const stock of stocks) {
-      if (stock.product.id && stock.dlc) {
-        dlcMap[stock.product.id] = stock.dlc.toISOString();
+      if (stock.product.id && stock.dlc && stock.product.ingredients?.[0]?.id) {
+        // Convertir stock.dlc en Date si c'est une string
+        const dlcDate =
+          typeof stock.dlc === 'string' ? new Date(stock.dlc) : stock.dlc;
+        const ingredientId = stock.product.ingredients[0].id;
+        dlcMap[ingredientId] = dlcDate.toISOString();
       }
     }
     return dlcMap;
@@ -190,6 +197,9 @@ export class ElasticsearchService implements OnModuleInit {
     const dlcMap = this.createDlcMap(stocks);
 
     const searchRequest: SearchRequest = {
+      collapse: {
+        field: 'name.keyword',
+      },
       index: this.recipesIndex,
       query: {
         function_score: {
@@ -275,9 +285,13 @@ export class ElasticsearchService implements OnModuleInit {
             bool: {
               must: {
                 bool: {
-                  should: stocks.map((stock) => ({
-                    term: { 'ingredients.productId': stock.product.id },
-                  })),
+                  should: stocks
+                    .filter((stock) => stock.product.ingredients?.[0]?.id)
+                    .map((stock) => ({
+                      term: {
+                        'ingredients.id': stock.product.ingredients[0].id,
+                      },
+                    })),
                   minimum_should_match: 1,
                 },
               },
@@ -291,7 +305,7 @@ export class ElasticsearchService implements OnModuleInit {
                   },
                 }),
               ),
-              minimum_should_match: 1,
+              minimum_should_match: 0,
             },
           },
           functions: [
@@ -428,8 +442,8 @@ export class ElasticsearchService implements OnModuleInit {
                       int availableIngredients = 0;
                       for (int i = 0; i < params._source.ingredients.size(); i++) {
                         def ingredient = params._source.ingredients.get(i);
-                        if (ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
-                           def stock = params.stocks[ingredient.productId];
+                        if (ingredient.id != null && params.stocks.containsKey(ingredient.id)) {
+                           def stock = params.stocks[ingredient.id];
                            if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
                              availableIngredients++;
                            }
@@ -491,8 +505,8 @@ export class ElasticsearchService implements OnModuleInit {
             int dlcCount = 0;
             for (int i = 0; i < params._source.ingredients.size(); i++) {
               def ingredient = params._source.ingredients.get(i);
-              if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
-                long dlcDate = java.time.ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
+              if (ingredient.id != null && params.dlc.containsKey(ingredient.id)) {
+                long dlcDate = java.time.ZonedDateTime.parse(params.dlc[ingredient.id]).toInstant().toEpochMilli();
                 long diff = dlcDate - today;
                 if (diff > 0) {
                   double days = diff / (1000.0 * 60 * 60 * 24);
@@ -574,8 +588,8 @@ export class ElasticsearchService implements OnModuleInit {
               }
               
               // FALLBACK: Ancien comportement pour compatibilité
-              if (!ingredientAvailable && ingredient.productId != null && params.stocks.containsKey(ingredient.productId)) {
-                def stock = params.stocks[ingredient.productId];
+              if (!ingredientAvailable && ingredient.id != null && params.stocks.containsKey(ingredient.id)) {
+                def stock = params.stocks[ingredient.id];
                 if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
                   ingredientAvailable = true;
                 }

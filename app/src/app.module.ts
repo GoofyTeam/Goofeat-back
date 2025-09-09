@@ -85,6 +85,14 @@ import { OcrReceiptModule } from './ocr-receipt/ocr-receipt.module';
               strict: true,
             },
           },
+          options: {
+            partials: {
+              dir: process.cwd() + '/templates/partials',
+              options: {
+                strict: true,
+              },
+            },
+          },
         };
       },
     }),

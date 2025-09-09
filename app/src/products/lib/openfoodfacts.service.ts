@@ -25,10 +25,6 @@ export class OpenFoodFactsService implements ProductDataService {
     this.client = new OFF() as OFFClass;
   }
 
-  /**
-   * Récupère les informations d'un produit par son code-barres
-   * @param barcode Code-barres du produit
-   */
   async getProductByBarcode(barcode: string): Promise<ProductData> {
     try {
       const response = await this.client.getProduct(barcode);
@@ -47,11 +43,6 @@ export class OpenFoodFactsService implements ProductDataService {
     }
   }
 
-  /**
-   * Recherche des produits par nom
-   * @param name Nom du produit à rechercher
-   * @param limit Nombre maximum de résultats (par défaut 10)
-   */
   async searchProductsByName(name: string, limit = 10): Promise<ProductData[]> {
     try {
       const brandResult = await this.client.getBrand(name);
@@ -65,10 +56,8 @@ export class OpenFoodFactsService implements ProductDataService {
         return [];
       }
 
-      // Limiter le nombre de résultats
       const limitedProducts = brandResult.products.slice(0, limit);
 
-      // Mapper chaque produit vers notre format ProductData (async)
       const mappedProducts = await Promise.all(
         limitedProducts.map((product) =>
           product ? this.mapToProductData(product) : null,
@@ -93,7 +82,6 @@ export class OpenFoodFactsService implements ProductDataService {
     const barcode: string =
       openFoodFactsProduct.code || openFoodFactsProduct._id;
 
-    // Recherche des ingrédients correspondants
     const ingredients: Ingredient[] = [];
     if (this.ingredientRepository) {
       const tagsToSearch = [(openFoodFactsProduct as any).food_groups || []];
@@ -114,12 +102,10 @@ export class OpenFoodFactsService implements ProductDataService {
       }
     }
 
-    // Analyser les données de packaging avec le nouveau service
     const packagingInfo =
       this.offAnalyzer.analyzeOpenFoodFactsProduct(openFoodFactsProduct);
 
     if (!packagingInfo) {
-      // Fallback sur l'ancien système si l'analyse échoue
       const parsedQuantity = parseQuantity(openFoodFactsProduct.quantity);
 
       if (parsedQuantity.value === null || parsedQuantity.unit === null) {
@@ -139,7 +125,6 @@ export class OpenFoodFactsService implements ProductDataService {
         ingredients,
         packagingSize: parsedQuantity.value,
         defaultUnit: parsedQuantity.unit,
-        // Taxonomie OpenFoodFacts pour le matching
         categories:
           openFoodFactsProduct.categories?.split(',').map((c) => c.trim()) ||
           [],
@@ -149,7 +134,6 @@ export class OpenFoodFactsService implements ProductDataService {
       return productData;
     }
 
-    // Utiliser les données analysées
     const productData: ProductData = {
       code: barcode,
       name,
@@ -159,19 +143,16 @@ export class OpenFoodFactsService implements ProductDataService {
       nutriments: openFoodFactsProduct.nutriments,
       ingredients,
       defaultUnit: packagingInfo.totalUnit,
-      // Taxonomie OpenFoodFacts pour le matching
       categories:
         openFoodFactsProduct.categories?.split(',').map((c) => c.trim()) || [],
       categoriesHierarchy: openFoodFactsProduct.categories_hierarchy || [],
 
-      // Informations de packaging détectées
       ...(packagingInfo.isMultipack
         ? {
             packagingSize: packagingInfo.packagingSize || 1,
             unitSize: packagingInfo.unitSize,
           }
         : {
-            // Produit simple - une seule unité de la taille totale
             packagingSize: 1,
             unitSize: packagingInfo.totalQuantity,
           }),
@@ -183,7 +164,6 @@ export class OpenFoodFactsService implements ProductDataService {
       },
     };
 
-    // console.log((openFoodFactsProduct as any).food_groups);
     return productData;
   }
 }

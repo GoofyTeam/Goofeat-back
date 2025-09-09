@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HelpersModule } from 'src/common/helpers/helpers.module';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { RecipeIngredient } from 'src/recipes/entities/recipe-ingredient.entity';
 import { Recipe } from 'src/recipes/entities/recipe.entity';
@@ -17,6 +18,7 @@ import { SpoonacularRecipesSeedService } from './services/spoonacular-recipes-se
       Recipe,
       RecipeIngredient,
     ]),
+    HelpersModule,
   ],
   controllers: [SpoonacularAdminController],
   providers: [
