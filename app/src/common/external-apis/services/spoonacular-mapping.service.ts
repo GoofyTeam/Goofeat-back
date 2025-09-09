@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { IngredientMatcherHelper } from 'src/common/helpers/ingredient-matcher.helper';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { Repository } from 'typeorm';
 import { SpoonacularIngredientMapping } from '../entities/spoonacular-ingredient-mapping.entity';
@@ -36,24 +37,21 @@ export class SpoonacularMappingService {
     private readonly mappingRepository: Repository<SpoonacularIngredientMapping>,
     @InjectRepository(Ingredient)
     private readonly ingredientRepository: Repository<Ingredient>,
+    private readonly ingredientMatcher: IngredientMatcherHelper,
   ) {}
 
-  /**
-   * Trouve l'ingrédient OpenFoodFacts correspondant à un ingrédient Spoonacular
-   */
   async findMapping(
     spoonacularIngredient: SpoonacularIngredient,
   ): Promise<MappingResult> {
     const { id, name } = spoonacularIngredient;
 
-    // 1. Vérifier si un mapping existe déjà en cache
+    // Check cache first
     const cachedMapping = await this.mappingRepository.findOne({
       where: { spoonacularId: id },
       relations: ['ingredient'],
     });
 
     if (cachedMapping) {
-      // Incrémenter le compteur d'utilisation
       await this.mappingRepository.increment(
         { id: cachedMapping.id },
         'usageCount',
@@ -68,7 +66,6 @@ export class SpoonacularMappingService {
       };
     }
 
-    // 2. Rechercher un match exact par nom
     const exactMatch = await this.findExactMatch(name);
     if (exactMatch) {
       const mapping = await this.createMapping(
@@ -85,7 +82,6 @@ export class SpoonacularMappingService {
       };
     }
 
-    // 3. Rechercher par fuzzy matching
     const fuzzyMatch = await this.findFuzzyMatch(name);
     if (fuzzyMatch.ingredient && fuzzyMatch.confidence >= 80) {
       const mapping = await this.createMapping(
@@ -102,7 +98,6 @@ export class SpoonacularMappingService {
       };
     }
 
-    // 4. Aucun mapping trouvé
     this.logger.warn(
       `Aucun mapping trouvé pour l'ingrédient Spoonacular: ${name} (ID: ${id})`,
     );
@@ -115,9 +110,6 @@ export class SpoonacularMappingService {
     };
   }
 
-  /**
-   * Recherche un match exact par nom (FR et EN)
-   */
   private async findExactMatch(
     spoonacularName: string,
   ): Promise<Ingredient | null> {
@@ -134,82 +126,56 @@ export class SpoonacularMappingService {
     return ingredient;
   }
 
-  /**
-   * Recherche par similarité (fuzzy matching)
-   */
   private async findFuzzyMatch(spoonacularName: string): Promise<{
     ingredient: Ingredient | null;
     confidence: number;
   }> {
     const normalizedName = this.normalizeIngredientName(spoonacularName);
 
-    // Recherche par LIKE et ILIKE pour compatibilité PostgreSQL sans extension
-    const ingredients = await this.ingredientRepository
-      .createQueryBuilder('ingredient')
-      .where(
-        'LOWER(ingredient.name) ILIKE LOWER(:likeName) OR LOWER(ingredient.nameFr) ILIKE LOWER(:likeName) OR LOWER(ingredient.nameEn) ILIKE LOWER(:likeName)',
-        { likeName: `%${normalizedName}%` },
-      )
-      .orWhere(
-        "LOWER(:name) ILIKE LOWER(CONCAT('%', ingredient.name, '%')) OR LOWER(:name) ILIKE LOWER(CONCAT('%', ingredient.nameFr, '%')) OR LOWER(:name) ILIKE LOWER(CONCAT('%', ingredient.nameEn, '%'))",
-        { name: normalizedName },
-      )
-      .getMany();
+    const matchResult =
+      await this.ingredientMatcher.findBestMatch(normalizedName);
 
-    if (ingredients.length > 0) {
-      // Calculer la similarité avec Levenshtein distance côté application
-      let bestMatch: Ingredient | null = null;
-      let bestScore = 0;
-
-      for (const ingredient of ingredients) {
-        const scores = [
-          this.calculateSimilarity(
-            normalizedName,
-            ingredient.name?.toLowerCase() || '',
-          ),
-          this.calculateSimilarity(
-            normalizedName,
-            ingredient.nameFr?.toLowerCase() || '',
-          ),
-          this.calculateSimilarity(
-            normalizedName,
-            ingredient.nameEn?.toLowerCase() || '',
-          ),
-        ];
-
-        const maxScore = Math.max(...scores);
-        if (maxScore > bestScore && maxScore >= 0.6) {
-          bestScore = maxScore;
-          bestMatch = ingredient;
-        }
+    if (matchResult.ingredient && matchResult.confidence !== 'none') {
+      let confidencePercentage = 0;
+      switch (matchResult.confidence) {
+        case 'high':
+          confidencePercentage = 95;
+          break;
+        case 'medium':
+          confidencePercentage = 85;
+          break;
+        case 'low':
+          confidencePercentage = 70;
+          break;
       }
 
-      if (bestMatch && bestScore >= 0.6) {
-        return {
-          ingredient: bestMatch,
-          confidence: Math.round(bestScore * 100),
-        };
-      }
+      this.logger.log(
+        `Spoonacular mapping: "${spoonacularName}" -> "${matchResult.ingredient.name}" (confidence: ${matchResult.confidence}, score: ${matchResult.score?.toFixed(3)})`,
+      );
+
+      return {
+        ingredient: matchResult.ingredient,
+        confidence: confidencePercentage,
+      };
     }
+
+    this.logger.warn(
+      `Spoonacular mapping: Aucun match fiable pour "${spoonacularName}" (score: ${matchResult.score?.toFixed(3)})`,
+    );
 
     return { ingredient: null, confidence: 0 };
   }
 
-  /**
-   * Calcule la similarité entre deux chaînes (algorithme simple)
-   */
   private calculateSimilarity(str1: string, str2: string): number {
     if (!str1 || !str2) return 0;
     if (str1 === str2) return 1;
 
-    // Si l'une contient l'autre
     if (str1.includes(str2) || str2.includes(str1)) {
       return (
         Math.max(str2.length / str1.length, str1.length / str2.length) * 0.9
       );
     }
 
-    // Calcul simple basé sur les mots communs
     const words1 = str1.split(/\s+/).filter((w) => w.length > 2);
     const words2 = str2.split(/\s+/).filter((w) => w.length > 2);
 
@@ -224,9 +190,6 @@ export class SpoonacularMappingService {
     return similarity;
   }
 
-  /**
-   * Crée un nouveau mapping en base de données
-   */
   private async createMapping(
     spoonacularIngredient: SpoonacularIngredient,
     ingredient: Ingredient,
@@ -258,9 +221,6 @@ export class SpoonacularMappingService {
     return savedMapping;
   }
 
-  /**
-   * Crée un mapping manuel (pour l'interface admin)
-   */
   async createManualMapping(
     spoonacularId: number,
     spoonacularName: string,
@@ -285,9 +245,6 @@ export class SpoonacularMappingService {
     return this.mappingRepository.save(mapping);
   }
 
-  /**
-   * Valide un mapping existant
-   */
   async validateMapping(
     mappingId: string,
   ): Promise<SpoonacularIngredientMapping> {
@@ -303,31 +260,20 @@ export class SpoonacularMappingService {
     return this.mappingRepository.save(mapping);
   }
 
-  /**
-   * Normalise le nom d'un ingrédient pour améliorer le matching
-   */
   private normalizeIngredientName(name: string): string {
-    return (
-      name
-        .toLowerCase()
-        .trim()
-        // Supprimer les mots courants qui parasitent le matching
-        .replace(
-          /\b(fresh|dried|ground|chopped|sliced|diced|minced|organic|raw)\b/g,
-          '',
-        )
-        // Supprimer les quantités et unités
-        .replace(/\b\d+\s*(cup|cups|tbsp|tsp|oz|lb|g|kg|ml|l)\b/g, '')
-        // Supprimer les caractères spéciaux et espaces multiples
-        .replace(/[^\w\s]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-    );
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(
+        /\b(fresh|dried|ground|chopped|sliced|diced|minced|organic|raw)\b/g,
+        '',
+      )
+      .replace(/\b\d+\s*(cup|cups|tbsp|tsp|oz|lb|g|kg|ml|l)\b/g, '')
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
-  /**
-   * Récupère les statistiques des mappings
-   */
   async getMappingStats(): Promise<{
     total: number;
     validated: number;
@@ -362,9 +308,6 @@ export class SpoonacularMappingService {
     };
   }
 
-  /**
-   * Récupère les mappings non validés pour review manuelle
-   */
   async getUnvalidatedMappings(
     limit: number = 50,
     offset: number = 0,

@@ -1,0 +1,127 @@
+{{#> main title="Produits à surveiller"}}
+
+{{> email-tokens}}
+
+<p>Bonjour {{firstName}},</p>
+
+<p>Voici un récapitulatif des produits dans votre garde-manger qui nécessitent votre attention, triés par ordre de criticité :</p>
+
+{{#if hasExpired}}
+<div class="alert alert-expired">
+    <h3 class="section-title title-expired">🚨 Produits périmés ({{expiredItems.length}})</h3>
+    <p class="text-gray-700 font-semibold mb-md">Ces produits sont périmés et doivent être jetés immédiatement :</p>
+    
+    <div class="mb-md">
+        {{#each expiredItems}}
+        <div class="item-card card-expired">
+            <div>
+                <span class="item-name name-expired">{{name}}</span>
+                <span class="item-info">Périmé depuis {{daysUntilExpiry}} jour(s) - DLC: {{dlc}}</span>
+            </div>
+            <a href="{{../backendUrl}}/api/v1/notifications/quick-action/delete?token={{deleteToken}}" 
+               class="btn btn-delete">
+                🗑️ Supprimer
+            </a>
+        </div>
+        {{/each}}
+    </div>
+</div>
+{{/if}}
+
+{{#if hasCritical}}
+<div class="alert alert-critical">
+    <h3 class="section-title title-critical">⚠️ À consommer aujourd'hui ({{criticalItems.length}})</h3>
+    <p class="text-gray-700 font-semibold mb-md">Ces produits expirent aujourd'hui :</p>
+    
+    <div class="mb-md">
+        {{#each criticalItems}}
+        <div class="item-card card-critical">
+            <div>
+                <span class="item-name name-critical">{{name}}</span>
+                <span class="item-info">Expire aujourd'hui - DLC: {{dlc}}</span>
+            </div>
+            <div class="flex gap-md items-center">
+                <span class="btn btn-neutral">🍳 Voir dans l'app</span>
+                <a href="{{../backendUrl}}/api/v1/notifications/quick-action/delete?token={{deleteToken}}" 
+                   class="btn btn-delete">
+                    🗑️ Supprimer
+                </a>
+            </div>
+        </div>
+        {{/each}}
+    </div>
+</div>
+{{/if}}
+
+{{#if hasUrgent}}
+<div class="alert alert-urgent">
+    <h3 class="section-title title-urgent">⏰ À consommer rapidement ({{urgentItems.length}})</h3>
+    <p class="text-gray-700 font-semibold mb-md">Ces produits expirent dans 1 à 3 jours :</p>
+    
+    <div class="mb-md">
+        {{#each urgentItems}}
+        <div class="item-card card-urgent">
+            <div>
+                <span class="item-name name-urgent">{{name}}</span>
+                <span class="item-info">Expire dans {{daysUntilExpiry}} jour(s) - DLC: {{dlc}}</span>
+            </div>
+            <div class="flex gap-md items-center">
+                <span class="btn btn-neutral">🍳 Voir dans l'app</span>
+                <a href="{{../backendUrl}}/api/v1/notifications/quick-action/delete?token={{deleteToken}}" 
+                   class="btn btn-delete">
+                    🗑️ Supprimer
+                </a>
+            </div>
+        </div>
+        {{/each}}
+    </div>
+</div>
+{{/if}}
+
+{{#if hasWarning}}
+<div style="background: #f0f8ff; border: 2px solid #2196f3; border-radius: 8px; padding: 15px; margin: 20px 0;">
+    <h3 style="color: #1565c0; margin-top: 0;">📅 À surveiller ({{warningItems.length}})</h3>
+    <p style="color: #0d47a1;">Ces produits expirent dans 4 à 7 jours :</p>
+    
+    <div style="margin: 10px 0;">
+        {{#each warningItems}}
+        <div style="background: white; border: 1px solid #90caf9; border-radius: 6px; padding: 12px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong style="color: #1565c0;">{{name}}</strong><br>
+                <span style="color: #666; font-size: 14px;">Expire dans {{daysUntilExpiry}} jours - DLC: {{dlc}}</span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <span style="background: #e0e0e0; color: #666; padding: 8px 16px; border-radius: 20px; font-size: 14px;">
+                    🍳 Voir dans l'app
+                </span>
+            </div>
+        </div>
+        {{/each}}
+    </div>
+</div>
+{{/if}}
+
+<div class="tips-section">
+    <h4 class="text-gray-700" style="margin-top: 0;">💡 Conseils anti-gaspillage</h4>
+    <ul class="text-gray-600" style="line-height: 1.8;">
+        <li>Utilisez les produits périmés ou proches de l'être en priorité dans vos recettes</li>
+        <li>Congelez les aliments que vous ne pourrez pas consommer à temps</li>
+        <li>Organisez votre frigo en plaçant les produits à date courte devant</li>
+        <li>Vérifiez l'aspect et l'odeur avant de jeter - certains produits peuvent être consommés après la DLC</li>
+    </ul>
+</div>
+
+<div class="text-center mb-2xl">
+    <div class="btn btn-neutral btn-lg rounded-full">
+        📱 Consultez l'application Goofeat
+    </div>
+</div>
+
+<div class="footer">
+    <p class="footer-text text-center">
+        Vous recevez cet email car vous avez activé les notifications d'expiration.<br>
+        Pour modifier vos préférences, utilisez les paramètres dans l'application mobile.
+    </p>
+</div>
+
+{{/main}}

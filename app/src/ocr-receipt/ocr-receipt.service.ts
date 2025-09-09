@@ -85,9 +85,6 @@ export class OcrReceiptService {
     private readonly stockService: StockService,
   ) {}
 
-  /**
-   * Upload et traitement d'un ticket de caisse
-   */
   async uploadReceipt(
     imageBuffer: Buffer,
     uploadData: UploadReceiptDto,
@@ -98,10 +95,8 @@ export class OcrReceiptService {
     );
 
     try {
-      // 1. Validation de l'image
       await this.validateImage(imageBuffer);
 
-      // 2. Analyse qualité image et OCR
       const imageQuality =
         await this.imageOptimizer.analyzeImageQuality(imageBuffer);
       this.logger.debug(`Qualité image: ${imageQuality}`);
@@ -112,7 +107,6 @@ export class OcrReceiptService {
         `OCR terminé: confiance ${ocrResult.confidence}, ${ocrResult.text.length} caractères`,
       );
 
-      // 3. Parsing du ticket
       const parsedReceipt = await this.frenchReceiptParser.parseReceipt(
         ocrResult.text,
         ocrResult.confidence,
@@ -121,7 +115,6 @@ export class OcrReceiptService {
         `Parsing terminé: ${parsedReceipt.items.length} items détectés`,
       );
 
-      // 4. Sauvegarde en base
       const receipt = await this.saveReceiptToDatabase(
         uploadData,
         ocrResult,
@@ -129,12 +122,10 @@ export class OcrReceiptService {
         imageQuality,
       );
 
-      // 5. Recherche de correspondances produits
       const productSuggestions = await this.findProductMatches(
         parsedReceipt.items,
       );
 
-      // 6. Construction du résultat
       const result = this.buildReceiptResult(receipt, productSuggestions);
 
       const processingTime = Date.now() - startTime;
@@ -152,16 +143,12 @@ export class OcrReceiptService {
     }
   }
 
-  /**
-   * Confirmation et ajout des items en stock
-   */
   async confirmReceipt(confirmData: ConfirmReceiptDto): Promise<void> {
     this.logger.log(
       `Confirmation ticket ${confirmData.receiptId} par utilisateur ${confirmData.userId}`,
     );
 
     try {
-      // 1. Récupérer le ticket
       const receipt = await this.receiptRepository.findOne({
         where: { id: confirmData.receiptId, userId: confirmData.userId },
         relations: ['items'],
@@ -175,7 +162,6 @@ export class OcrReceiptService {
         throw new BadRequestException('Ticket déjà traité');
       }
 
-      // 2. Traiter chaque item confirmé
       let confirmedCount = 0;
       for (const confirmedItem of confirmData.confirmedItems) {
         if (confirmedItem.confirmed && confirmedItem.productId) {
@@ -184,7 +170,6 @@ export class OcrReceiptService {
         }
       }
 
-      // 3. Mettre à jour le statut du ticket
       receipt.status = ReceiptStatus.CONFIRMED;
       receipt.confirmedAt = new Date();
       receipt.confirmedItemsCount = confirmedCount;
@@ -203,9 +188,6 @@ export class OcrReceiptService {
     }
   }
 
-  /**
-   * Récupère l'historique des tickets d'un utilisateur
-   */
   async getUserReceipts(userId: string, limit = 50): Promise<Receipt[]> {
     return this.receiptRepository.find({
       where: { userId },
@@ -215,9 +197,6 @@ export class OcrReceiptService {
     });
   }
 
-  /**
-   * Récupère les détails d'un ticket
-   */
   async getReceiptDetails(receiptId: string, userId: string): Promise<Receipt> {
     const receipt = await this.receiptRepository.findOne({
       where: { id: receiptId, userId },
@@ -231,20 +210,15 @@ export class OcrReceiptService {
     return receipt;
   }
 
-  /**
-   * Valide le format et la taille de l'image
-   */
   private async validateImage(imageBuffer: Buffer): Promise<void> {
     if (!imageBuffer || imageBuffer.length === 0) {
       throw new BadRequestException('Image manquante');
     }
 
     if (imageBuffer.length > 10 * 1024 * 1024) {
-      // 10MB
       throw new BadRequestException('Image trop volumineuse (max 10MB)');
     }
 
-    // Vérifier le format via Sharp
     try {
       const metadata = await this.imageOptimizer.getImageMetadata(imageBuffer);
       if (!['jpeg', 'png', 'webp'].includes(metadata.format)) {
@@ -255,16 +229,12 @@ export class OcrReceiptService {
     }
   }
 
-  /**
-   * Sauvegarde le ticket et ses items en base de données
-   */
   private async saveReceiptToDatabase(
     uploadData: UploadReceiptDto,
     ocrResult: any,
     parsedReceipt: any,
     imageQuality: number,
   ): Promise<Receipt> {
-    // Créer le ticket principal
     const receipt = this.receiptRepository.create({
       userId: uploadData.userId,
       householdId: uploadData.householdId,
@@ -282,7 +252,6 @@ export class OcrReceiptService {
 
     const savedReceipt = await this.receiptRepository.save(receipt);
 
-    // Créer les items
     const receiptItems = parsedReceipt.items.map((item: ParsedReceiptItem) =>
       this.receiptItemRepository.create({
         receiptId: savedReceipt.id,
@@ -304,25 +273,20 @@ export class OcrReceiptService {
     return savedReceipt;
   }
 
-  /**
-   * Recherche des correspondances de produits
-   */
   private async findProductMatches(
     parsedItems: any[],
   ): Promise<Map<string, ProductSuggestion[]>> {
     const productSuggestions = new Map<string, ProductSuggestion[]>();
 
-    // Récupérer tous les produits pour la recherche fuzzy
     const allProducts = await this.productService.findAllForMatching();
 
-    // Configuration Fuse.js pour la recherche floue - plus permissive
     const fuse = new Fuse(allProducts, {
       keys: ['name'],
-      threshold: 0.4, // Plus permissif (0.6 → 0.4)
+      threshold: 0.4,
       includeScore: true,
       minMatchCharLength: 3,
-      distance: 100, // Distance max pour matching
-      ignoreLocation: true, // Ignore la position dans le texte
+      distance: 100,
+      ignoreLocation: true,
     });
 
     for (const item of parsedItems) {
@@ -333,20 +297,18 @@ export class OcrReceiptService {
         `Recherche pour: "${item.productName}" → "${normalizedName}"`,
       );
 
-      // Recherche par nom de produit normalisé
-      const nameMatches = fuse.search(normalizedName).slice(0, 5); // Augmenter à 5 suggestions
+      const nameMatches = fuse.search(normalizedName).slice(0, 5);
 
       for (const match of nameMatches) {
         suggestions.push({
           productId: match.item.id,
           name: match.item.name,
-          brand: '', // Brand property doesn't exist on Product
-          matchScore: 1 - (match.score || 0), // Inverser le score (plus haut = meilleur)
-          category: '', // Categories property doesn't exist on Product
+          brand: '',
+          matchScore: 1 - (match.score || 0),
+          category: '',
         });
       }
 
-      // Recherche par code produit si disponible
       if (item.productCode) {
         const productByCode = await this.productService.findByBarcode(
           item.productCode,
@@ -355,14 +317,13 @@ export class OcrReceiptService {
           suggestions.unshift({
             productId: productByCode.id,
             name: productByCode.name,
-            brand: '', // Brand property doesn't exist on Product
-            matchScore: 1.0, // Score parfait pour correspondance de code
-            category: '', // Categories property doesn't exist on Product
+            brand: '',
+            matchScore: 1.0,
+            category: '',
           });
         }
       }
 
-      // Trier par score décroissant et garder les 3 meilleurs
       suggestions.sort((a, b) => b.matchScore - a.matchScore);
       productSuggestions.set(item.productName, suggestions.slice(0, 3));
     }
@@ -370,9 +331,6 @@ export class OcrReceiptService {
     return productSuggestions;
   }
 
-  /**
-   * Construit le résu  ltat final
-   */
   private buildReceiptResult(
     receipt: Receipt,
     productSuggestions: Map<string, ProductSuggestion[]>,
@@ -388,7 +346,6 @@ export class OcrReceiptService {
       suggestedProduct: productSuggestions.get(item.productName)?.[0],
     }));
 
-    // Collecter toutes les suggestions uniques
     const allSuggestions: ProductSuggestion[] = [];
     productSuggestions.forEach((suggestions) => {
       suggestions.forEach((suggestion) => {
@@ -411,9 +368,6 @@ export class OcrReceiptService {
     };
   }
 
-  /**
-   * Ajoute un item confirmé au stock
-   */
   private async addItemToStock(
     receipt: Receipt,
     confirmedItem: ConfirmedReceiptItem,
@@ -431,7 +385,6 @@ export class OcrReceiptService {
         receiptId: receipt.id,
       });
 
-      // Mettre à jour l'item du ticket avec le produit associé
       await this.receiptItemRepository.update(
         { id: confirmedItem.receiptItemId },
         {
@@ -448,27 +401,22 @@ export class OcrReceiptService {
     }
   }
 
-  /**
-   * Normalise un nom de produit pour améliorer le matching
-   */
   private normalizeProductName(productName: string): string {
     return (
       productName
-        // Corrections OCR courantes
-        .replace(/0/g, 'o') // B0ite → Boite
-        .replace(/1/g, 'l') // 1 → l
-        .replace(/5/g, 's') // 5 → s
-        .replace(/\bD0\b/gi, "d'") // D0lives → d'olives
-        .replace(/\bTh0n\b/gi, 'Thon') // Th0n → Thon
-        .replace(/\bM0\b/gi, 'Mo') // M0zzarella → Mozzarella
-        .replace(/\bC0\b/gi, 'Co') // C0la → Cola
-        .replace(/\bLim0\b/gi, 'Limo') // Lim0nade → Limonade
-        .replace(/\bR0\b/gi, 'Ro') // R0sé → Rosé
-        .replace(/\bSir0p\b/gi, 'Sirop') // Sir0p → Sirop
-        // Suppression mots non significatifs
+        // OCR fixes
+        .replace(/0/g, 'o')
+        .replace(/1/g, 'l')
+        .replace(/5/g, 's')
+        .replace(/\bD0\b/gi, "d'")
+        .replace(/\bTh0n\b/gi, 'Thon')
+        .replace(/\bM0\b/gi, 'Mo')
+        .replace(/\bC0\b/gi, 'Co')
+        .replace(/\bLim0\b/gi, 'Limo')
+        .replace(/\bR0\b/gi, 'Ro')
+        .replace(/\bSir0p\b/gi, 'Sirop')
         .replace(/\b(De|Du|Des|Le|La|Les|Un|Une)\b/gi, '')
         .replace(/\b(Paquet|Boite|Sachet|Bouteille|Pack)\b/gi, '')
-        // Nettoyage final
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase()

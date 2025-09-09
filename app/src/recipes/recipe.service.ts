@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -15,6 +14,7 @@ import {
   Paginated,
   paginate,
 } from 'nestjs-paginate';
+import { UnitConversionService } from 'src/common/units/unit-conversion.service';
 import { StockLog, StockLogAction } from 'src/stocks/entities/stock-log.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import { User } from 'src/users/entity/user.entity';
@@ -42,6 +42,7 @@ export class RecipeService {
     private readonly stockRepository: Repository<Stock>,
     @InjectRepository(StockLog)
     private readonly stockLogRepository: Repository<StockLog>,
+    private readonly unitConversionService: UnitConversionService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -253,7 +254,7 @@ export class RecipeService {
       missingIngredients: [],
     };
 
-    // 4. Vérifier la disponibilité et calculer les quantités ajustées
+    // 4. Vérifier la disponibilité et calculer les quantités ajustées avec conversion d'unités
     const stockUpdatesMap = new Map<string, any>();
 
     for (const recipeIngredient of recipe.ingredients) {
@@ -261,14 +262,6 @@ export class RecipeService {
 
       // Chercher TOUS les stocks correspondants
       const matchingStocks = userStocks.filter((stock) => {
-        // Correspondance par nom de produit
-        if (
-          stock.product.name.toLowerCase() ===
-          recipeIngredient.ingredient.name.toLowerCase()
-        ) {
-          return true;
-        }
-
         // Correspondance par ingrédients associés au produit
         if (stock.product.ingredients && stock.product.ingredients.length > 0) {
           return stock.product.ingredients.some(
@@ -279,17 +272,34 @@ export class RecipeService {
         return false;
       });
 
-      // Calculer les stocks nécessaires (peut être multiple)
-      const stockSelection = this.selectStocksForQuantity(
+      // Calculer les stocks nécessaires avec conversion d'unités et priorité FIFO (DLC)
+      const stockSelection = this.selectStocksForQuantityWithUnits(
         matchingStocks,
         adjustedQuantity,
+        recipeIngredient.unit,
       );
 
       if (!stockSelection.success) {
-        const totalAvailable = matchingStocks.reduce(
-          (sum, stock) => sum + stock.quantity,
-          0,
-        );
+        // Calculer la quantité totale disponible en convertissant vers l'unité de la recette
+        const totalAvailable = matchingStocks.reduce((sum, stock) => {
+          const stockUnit = stock.unit || stock.product.defaultUnit;
+          if (!stockUnit) return sum;
+          const stockResult = this.unitConversionService.calculateTotalQuantity(
+            stock.quantity,
+            stockUnit,
+            stock.product.unitSize,
+            stock.product.packagingSize,
+          );
+
+          const converted = this.unitConversionService.convert(
+            stockResult.totalQuantity,
+            stockResult.baseUnit,
+            recipeIngredient.unit,
+          );
+
+          return sum + (converted || 0);
+        }, 0);
+
         result.missingIngredients?.push({
           ingredientId: recipeIngredient.ingredientId,
           ingredientName: recipeIngredient.ingredient.name,
@@ -305,19 +315,41 @@ export class RecipeService {
       let totalQuantityFromStocks = 0;
       for (const stockUsage of stockSelection.stockUsages) {
         const stock = stockUsage.stock;
-        const quantityToUse = stockUsage.quantityToUse;
+        const quantityToUse = stockUsage.quantityToUse; // Déjà en unité du stock
 
         totalQuantityFromStocks += quantityToUse;
+
+        // Calculer les quantités avant/après en tenant compte du packaging
+        const stockUnit = stock.unit || stock.product.defaultUnit;
+        if (!stockUnit) continue;
+
+        const stockResult = this.unitConversionService.calculateTotalQuantity(
+          stock.quantity,
+          stockUnit,
+          stock.product.unitSize,
+          stock.product.packagingSize,
+        );
+
+        const quantityBefore = stockResult.totalQuantity;
+        const quantityAfter = quantityBefore - quantityToUse;
 
         // Préparer les mises à jour de stock
         stockUpdatesMap.set(stock.id, {
           stockId: stock.id,
           productName: stock.product.name,
-          quantityBefore: stock.quantity,
-          quantityAfter: stock.quantity - quantityToUse,
+          quantityBefore,
+          quantityAfter,
           quantityUsed: quantityToUse,
-          unit: recipeIngredient.unit,
+          unit: stock.unit, // Utiliser l'unité du stock pour la mise à jour
           stock: stock,
+          // Calculer la nouvelle quantité base pour la DB
+          newBaseQuantity:
+            stock.product.packagingSize && stock.product.unitSize
+              ? quantityAfter /
+                (stock.product.packagingSize * stock.product.unitSize)
+              : stock.product.unitSize
+                ? quantityAfter / stock.product.unitSize
+                : quantityAfter,
         });
       }
 
@@ -333,11 +365,37 @@ export class RecipeService {
             ? stockSelection.stockUsages[0].stock.id
             : undefined,
         stockQuantityBefore: stockSelection.stockUsages.reduce(
-          (sum, usage) => sum + usage.stock.quantity,
+          (sum: number, usage: StockUsage) => {
+            const stockUnit =
+              usage.stock.unit || usage.stock.product.defaultUnit;
+            if (!stockUnit) return sum;
+
+            const stockResult =
+              this.unitConversionService.calculateTotalQuantity(
+                usage.stock.quantity,
+                stockUnit,
+                usage.stock.product.unitSize,
+                usage.stock.product.packagingSize,
+              );
+            return sum + stockResult.totalQuantity;
+          },
           0,
         ),
         stockQuantityAfter: stockSelection.stockUsages.reduce(
-          (sum, usage) => sum + (usage.stock.quantity - usage.quantityToUse),
+          (sum: number, usage: StockUsage) => {
+            const stockUnit =
+              usage.stock.unit || usage.stock.product.defaultUnit;
+            if (!stockUnit) return sum;
+
+            const stockResult =
+              this.unitConversionService.calculateTotalQuantity(
+                usage.stock.quantity,
+                stockUnit,
+                usage.stock.product.unitSize,
+                usage.stock.product.packagingSize,
+              );
+            return sum + (stockResult.totalQuantity - usage.quantityToUse);
+          },
           0,
         ),
       });
@@ -416,19 +474,6 @@ export class RecipeService {
     return result;
   }
 
-  /**
-   * Sélectionne le meilleur stock parmi plusieurs candidats selon une stratégie de priorité
-   *
-   * Stratégie appliquée :
-   * 1. Stocks avec quantité suffisante uniquement
-   * 2. Priorité FIFO : DLC la plus proche en premier (anti-gaspillage)
-   * 3. Si DLC égales : quantité la plus proche de la quantité requise
-   * 4. Si quantités égales : plus ancienne date de création
-   *
-   * @param stocks - Liste des stocks candidats
-   * @param requiredQuantity - Quantité nécessaire
-   * @returns Le meilleur stock ou null si aucun ne convient
-   */
   private selectBestStock(
     stocks: Stock[],
     requiredQuantity: number,
@@ -437,7 +482,6 @@ export class RecipeService {
       return null;
     }
 
-    // 1. Filtrer les stocks avec quantité suffisante
     const validStocks = stocks.filter(
       (stock) => (stock.totalQuantity || stock.quantity) >= requiredQuantity,
     );
@@ -450,67 +494,7 @@ export class RecipeService {
       return validStocks[0];
     }
 
-    // 2. Tri par priorité
     return validStocks.sort((a, b) => {
-      // Priorité 1 : FIFO - DLC la plus proche en premier
-      const dlcA = new Date(a.dlc).getTime();
-      const dlcB = new Date(b.dlc).getTime();
-
-      if (dlcA !== dlcB) {
-        return dlcA - dlcB; // DLC croissante
-      }
-
-      // Priorité 2 : Quantité optimale - plus proche de la quantité requise
-      const quantityA = a.totalQuantity || a.quantity;
-      const quantityB = b.totalQuantity || b.quantity;
-      const diffA = Math.abs(quantityA - requiredQuantity);
-      const diffB = Math.abs(quantityB - requiredQuantity);
-
-      if (diffA !== diffB) {
-        return diffA - diffB; // Différence croissante
-      }
-
-      // Priorité 3 : Plus ancien stock (FIFO sur la création)
-      const createdA = new Date(a.createdAt).getTime();
-      const createdB = new Date(b.createdAt).getTime();
-
-      return createdA - createdB; // Plus ancien en premier
-    })[0];
-  }
-
-  /**
-   * Utilise la stratégie FIFO et peut combiner plusieurs stocks si nécessaire
-   *
-   * @param stocks - Liste des stocks candidats
-   * @param requiredQuantity - Quantité totale nécessaire
-   * @returns Sélection de stocks avec quantités à utiliser
-   */
-  private selectStocksForQuantity(
-    stocks: Stock[],
-    requiredQuantity: number,
-  ): StockSelection {
-    if (!stocks || stocks.length === 0) {
-      return { success: false, stockUsages: [], totalQuantity: 0 };
-    }
-
-    const totalAvailable = stocks.reduce(
-      (sum, stock) => sum + (stock.totalQuantity || stock.quantity),
-      0,
-    );
-    if (totalAvailable < requiredQuantity) {
-      return { success: false, stockUsages: [], totalQuantity: 0 };
-    }
-
-    const singleStock = this.selectBestStock(stocks, requiredQuantity);
-    if (singleStock) {
-      return {
-        success: true,
-        stockUsages: [{ stock: singleStock, quantityToUse: requiredQuantity }],
-        totalQuantity: requiredQuantity,
-      };
-    }
-
-    const sortedStocks = [...stocks].sort((a, b) => {
       const dlcA = new Date(a.dlc).getTime();
       const dlcB = new Date(b.dlc).getTime();
 
@@ -518,26 +502,121 @@ export class RecipeService {
         return dlcA - dlcB;
       }
 
+      const quantityA = a.totalQuantity || a.quantity;
+      const quantityB = b.totalQuantity || b.quantity;
+      const diffA = Math.abs(quantityA - requiredQuantity);
+      const diffB = Math.abs(quantityB - requiredQuantity);
+
+      if (diffA !== diffB) {
+        return diffA - diffB;
+      }
+
       const createdA = new Date(a.createdAt).getTime();
       const createdB = new Date(b.createdAt).getTime();
 
       return createdA - createdB;
-    });
+    })[0];
+  }
 
+  private selectStocksForQuantityWithUnits(
+    stocks: Stock[],
+    requiredQuantity: number,
+    requiredUnit: any,
+  ): StockSelection {
+    if (!stocks || stocks.length === 0) {
+      return { success: false, stockUsages: [], totalQuantity: 0 };
+    }
+
+    const stocksWithAvailableQuantity = stocks
+      .map((stock) => {
+        const stockUnit = stock.unit || stock.product.defaultUnit;
+        if (!stockUnit) return null;
+
+        const stockResult = this.unitConversionService.calculateTotalQuantity(
+          stock.quantity,
+          stockUnit,
+          stock.product.unitSize,
+          stock.product.packagingSize,
+        );
+
+        const convertedQuantity = this.unitConversionService.convert(
+          stockResult.totalQuantity,
+          stockResult.baseUnit,
+          requiredUnit,
+        );
+
+        if (convertedQuantity === null) return null;
+
+        return {
+          stock,
+          stockUnit,
+          totalStockQuantity: stockResult.totalQuantity,
+          availableInRecipeUnit: convertedQuantity,
+        };
+      })
+      .filter(
+        (item): item is NonNullable<typeof item> =>
+          item !== null && item.availableInRecipeUnit > 0,
+      )
+      .sort((a, b) => {
+        // Priorité 1: FIFO - DLC la plus proche en premier (anti-gaspillage)
+        const dlcA = new Date(a.stock.dlc).getTime();
+        const dlcB = new Date(b.stock.dlc).getTime();
+        if (dlcA !== dlcB) return dlcA - dlcB;
+
+        // Priorité 2: Plus ancien stock (FIFO sur la création)
+        const createdA = new Date(a.stock.createdAt).getTime();
+        const createdB = new Date(b.stock.createdAt).getTime();
+        return createdA - createdB;
+      });
+
+    // Vérifier si on a assez de stock total
+    const totalAvailable = stocksWithAvailableQuantity.reduce(
+      (sum, item) => sum + item.availableInRecipeUnit,
+      0,
+    );
+
+    if (totalAvailable < requiredQuantity) {
+      return { success: false, stockUsages: [], totalQuantity: 0 };
+    }
+
+    // Sélection optimale : prendre les stocks dans l'ordre FIFO
     const stockUsages: StockUsage[] = [];
     let remainingQuantity = requiredQuantity;
 
-    for (const stock of sortedStocks) {
+    for (const item of stocksWithAvailableQuantity) {
       if (remainingQuantity <= 0) break;
 
-      const availableQuantity = stock.totalQuantity || stock.quantity;
-      const quantityToUse = Math.min(availableQuantity, remainingQuantity);
-      stockUsages.push({ stock, quantityToUse });
-      remainingQuantity -= quantityToUse;
+      const quantityToUseInRecipeUnit = Math.min(
+        item.availableInRecipeUnit,
+        remainingQuantity,
+      );
+
+      // Convertir la quantité à utiliser vers l'unité du stock pour la soustraction
+      const quantityToUseInStockUnit = this.unitConversionService.convert(
+        quantityToUseInRecipeUnit,
+        requiredUnit,
+        item.stockUnit,
+      );
+
+      if (quantityToUseInStockUnit === null) continue;
+
+      // Utiliser directement la quantité réelle du stock (pas convertie)
+      const actualQuantityToUse = Math.min(
+        quantityToUseInStockUnit,
+        item.totalStockQuantity,
+      );
+
+      stockUsages.push({
+        stock: item.stock,
+        quantityToUse: actualQuantityToUse, // En unité du stock
+      });
+
+      remainingQuantity -= quantityToUseInRecipeUnit;
     }
 
     return {
-      success: remainingQuantity <= 0,
+      success: remainingQuantity <= 0.001, // Tolérance pour les erreurs d'arrondi
       stockUsages,
       totalQuantity: requiredQuantity - remainingQuantity,
     };

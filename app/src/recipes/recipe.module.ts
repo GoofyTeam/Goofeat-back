@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ElasticsearchModule } from 'src/common/elasticsearch/elasticsearch.module';
+import { UnitsModule } from 'src/common/units/units.module';
 import { IngredientsModule } from 'src/ingredients/ingredients.module';
 import { StockLog } from 'src/stocks/entities/stock-log.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
@@ -14,6 +15,7 @@ import { RecipeService } from './recipe.service';
   imports: [
     TypeOrmModule.forFeature([Recipe, RecipeIngredient, Stock, StockLog]),
     ElasticsearchModule,
+    UnitsModule,
     IngredientsModule,
     EventEmitterModule.forRoot(),
   ],

@@ -61,7 +61,6 @@ export class StockService {
 
     const { productId, ...stockData } = createStockDto;
 
-    // Calculer la quantité totale réelle si on a des infos de packaging
     let totalQuantity = createStockDto.quantity;
     let baseUnit =
       createStockDto.unit || product.defaultUnit || PieceUnit.PIECE;
@@ -92,7 +91,6 @@ export class StockService {
       relations: ['product', 'user'],
     });
 
-    // Émettre l'événement de création avec l'utilisateur
     if (stockWithRelations) {
       this.eventEmitter.emit('stock.created', {
         stock: stockWithRelations,
@@ -138,7 +136,6 @@ export class StockService {
       throw new NotFoundException(`Stock avec l'ID ${id} non trouvé`);
     }
 
-    // An admin can access any stock, otherwise check ownership.
     if (
       !currentUser.roles.includes(Role.ADMIN) &&
       stock.user.id !== currentUser.id
@@ -153,13 +150,12 @@ export class StockService {
     updateStockDto: UpdateStockDto,
     currentUser: User,
   ): Promise<Stock> {
-    const stock = await this.findOne(id, currentUser); // findOne now handles admin checks
+    const stock = await this.findOne(id, currentUser);
     const previousDlc = stock.dlc;
 
     const updatedStock = this.stockRepository.merge(stock, updateStockDto);
     const savedStock = await this.stockRepository.save(updatedStock);
 
-    // Charger les relations pour l'événement
     const stockWithRelations = await this.stockRepository.findOne({
       where: { id: savedStock.id },
       relations: ['product', 'user'],
@@ -178,7 +174,6 @@ export class StockService {
   }
 
   async remove(id: string, currentUser: User): Promise<void> {
-    // findOne now handles admin checks
     const stock = await this.findOne(id, currentUser);
     await this.stockRepository.delete(id);
 
@@ -188,9 +183,6 @@ export class StockService {
     });
   }
 
-  /**
-   * Ajoute du stock pour un produit (utilisé par l'OCR Receipt)
-   */
   async addStock(stockData: {
     userId: string;
     householdId?: string;
@@ -212,7 +204,6 @@ export class StockService {
       );
     }
 
-    // Prédire la DLC si pas fournie
     let dlc = stockData.expirationDate;
     if (!dlc) {
       const dlcPrediction = this.dlcRulesService.predictDefaultDlc(product);
@@ -221,8 +212,7 @@ export class StockService {
       });
     }
 
-    // Trouver l'utilisateur
-    const user = { id: stockData.userId } as any; // Simplification pour l'instant
+    const user = { id: stockData.userId } as any;
 
     const stock = this.stockRepository.create({
       product,
