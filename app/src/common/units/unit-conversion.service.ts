@@ -162,7 +162,7 @@ export class UnitConversionService {
     const convertedQuantity = this.convert(quantity, unit, baseUnit);
 
     return {
-      value: convertedQuantity !== null ? convertedQuantity : quantity,
+      value: convertedQuantity ?? quantity,
       unit: baseUnit,
     };
   }

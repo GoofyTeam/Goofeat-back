@@ -42,6 +42,21 @@ export class AuthController {
     private readonly configService: ConfigService,
   ) {}
 
+  private handleOAuthRedirect(req: RequestWithUser, res: Response) {
+    const user = req.user;
+    const token = this.authService.generateJwtToken(user);
+
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
+    const base = frontendUrl.replace(/\/$/, '');
+
+    const redirectUrl = `${base}/oauth/callback#access_token=${encodeURIComponent(
+      token,
+    )}`;
+
+    return res.redirect(redirectUrl);
+  }
+
   @Get('google')
   @UseGuards(GoogleOAuthGuard)
   @ApiOperation({ summary: 'Authentification Google OAuth' })
@@ -55,17 +70,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Callback Google OAuth' })
   @ApiResponse({ status: 200, description: 'Connexion réussie avec Google' })
   googleAuthRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
-    const user = req.user;
-    const token = this.authService.generateJwtToken(user);
-
-    const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
-    const base = frontendUrl.replace(/\/$/, '');
-    const redirectUrl = `${base}/oauth/callback#access_token=${encodeURIComponent(
-      token,
-    )}`;
-
-    return res.redirect(redirectUrl);
+    return this.handleOAuthRedirect(req, res);
   }
 
   @Get('apple')
@@ -81,18 +86,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Callback Apple OAuth' })
   @ApiResponse({ status: 200, description: 'Connexion réussie avec Apple' })
   appleAuthRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
-    const user = req.user;
-    const token = this.authService.generateJwtToken(user);
-
-    const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
-    const base = frontendUrl.replace(/\/$/, '');
-    // Use URL fragment to avoid leaking token via referrers and logs
-    const redirectUrl = `${base}/oauth/callback#access_token=${encodeURIComponent(
-      token,
-    )}`;
-
-    return res.redirect(redirectUrl);
+    return this.handleOAuthRedirect(req, res);
   }
 
   @Get('profile')

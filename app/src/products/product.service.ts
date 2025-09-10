@@ -386,7 +386,7 @@ export class ProductService {
     const convertedTags: string[] = [];
 
     for (const category of categories) {
-      if (Object.prototype.hasOwnProperty.call(conversionMap, category)) {
+      if (Object.hasOwn(conversionMap, category)) {
         const converted = conversionMap[category];
         if (converted) {
           convertedTags.push(converted);

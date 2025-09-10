@@ -6,7 +6,6 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Receipt } from './receipt.entity';
-import { Product } from '../../products/entities/product.entity';
 
 @Entity('receipt_items')
 export class ReceiptItem {

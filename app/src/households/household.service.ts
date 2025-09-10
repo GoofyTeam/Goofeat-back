@@ -92,7 +92,7 @@ export class HouseholdService {
     }
 
     // Vérifier que l'utilisateur est membre de ce foyer
-    const membership = await this.getMembershipOrThrow(user.id, id);
+    const _membership = await this.getMembershipOrThrow(user.id, id);
 
     return household;
   }
@@ -146,7 +146,7 @@ export class HouseholdService {
     householdId: string,
     user: User,
   ): Promise<string> {
-    const household = await this.findOne(householdId, user);
+    const _household = await this.findOne(householdId, user);
     const membership = await this.getMembershipOrThrow(user.id, householdId);
 
     // Vérifier les permissions

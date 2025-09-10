@@ -7,8 +7,8 @@ import {
   StrategyOptionsWithRequest,
   VerifyCallback,
 } from 'passport-google-oauth20';
-import { AuthService, OAuthUser } from '../auth.service';
-import { Request, Response } from 'express';
+import { AuthService } from '../auth.service';
+import { Request } from 'express';
 import { OAuthStateManager } from '../utils/oauth-state';
 
 @Injectable()

@@ -179,7 +179,7 @@ export class UsersService {
     userId: string,
     verified: boolean,
   ): Promise<User> {
-    const user = await this.findOne(userId);
+    const _user = await this.findOne(userId);
     await this.usersRepository.update(userId, { isEmailVerified: verified });
     return this.findOne(userId);
   }

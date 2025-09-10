@@ -1,8 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { MailService } from '../../common/mail/mail.service';
-import { Stock } from '../../stocks/entities/stock.entity';
 import { User } from '../../users/entity/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';

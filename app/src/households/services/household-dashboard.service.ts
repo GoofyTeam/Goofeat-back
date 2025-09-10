@@ -423,7 +423,7 @@ export class HouseholdDashboardService {
   async getHouseholdAchievements(householdId: string, user: User) {
     await this.verifyHouseholdAccess(householdId, user);
 
-    const metrics = await this.getAntiWasteMetrics(householdId, user, '30d');
+    const _metrics = await this.getAntiWasteMetrics(householdId, user, '30d');
 
     return {
       unlockedBadges: [

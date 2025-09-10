@@ -497,7 +497,7 @@ export class RecipeService {
       return validStocks[0];
     }
 
-    return validStocks.sort((a, b) => {
+    return validStocks.toSorted((a, b) => {
       const dlcA = new Date(a.dlc).getTime();
       const dlcB = new Date(b.dlc).getTime();
 
