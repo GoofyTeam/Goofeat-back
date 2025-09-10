@@ -14,6 +14,7 @@ import { NotificationType } from './enums/notification-type.enum';
 import { StockWithCriticality } from './interfaces/stock-with-criticality.interface';
 import { NotificationService } from './notification.service';
 import { ExpirationEmailService } from './services/expiration-email.service';
+import { getCriticality } from './criticality';
 
 @Injectable()
 export class ExpirationCheckService {
@@ -258,16 +259,7 @@ export class ExpirationCheckService {
         (dlcDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
       );
 
-      const criticality =
-        daysUntilExpiry <= 0
-          ? 'expired'
-          : daysUntilExpiry <= 1
-            ? 'critical'
-            : daysUntilExpiry <= 3
-              ? 'urgent'
-              : daysUntilExpiry <= 7
-                ? 'warning'
-                : 'normal';
+      const criticality = getCriticality(daysUntilExpiry);
 
       return {
         ...stock,

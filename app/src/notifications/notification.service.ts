@@ -7,6 +7,7 @@ import { Stock } from '../stocks/entities/stock.entity';
 import { User } from '../users/entity/user.entity';
 import { NotificationType } from './enums/notification-type.enum';
 import { StockWithCriticality } from './interfaces/stock-with-criticality.interface';
+import { getCriticality } from './criticality';
 
 export interface NotificationPayload {
   title: string;
@@ -284,16 +285,9 @@ export class NotificationService {
         (dlcDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
       );
 
-      const criticality =
-        daysUntilExpiry <= 0
-          ? 'expired'
-          : daysUntilExpiry <= 1
-            ? 'critical'
-            : daysUntilExpiry <= 3
-              ? 'urgent'
-              : daysUntilExpiry <= 7
-                ? 'warning'
-                : 'normal';
+
+
+      const criticality = getCriticality(daysUntilExpiry);
 
       return {
         ...stock,

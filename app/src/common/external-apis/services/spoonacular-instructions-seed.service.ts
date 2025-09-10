@@ -248,11 +248,12 @@ export class SpoonacularInstructionsSeedService {
         }
 
         // Rate limiting intelligent: pause adaptative
-        const adaptiveDelay = respectApiLimits
-          ? result.totalErrors > 0
-            ? baseDelayMs * 2
-            : baseDelayMs
-          : baseDelayMs / 2; // Mode rapide si les limites ne sont pas respectées
+        let adaptiveDelay: number;
+        if (respectApiLimits) {
+          adaptiveDelay = result.totalErrors > 0 ? baseDelayMs * 2 : baseDelayMs;
+        } else {
+          adaptiveDelay = baseDelayMs / 2; // Mode rapide si les limites ne sont pas respectées
+        }
         await this.sleep(adaptiveDelay);
       }
 

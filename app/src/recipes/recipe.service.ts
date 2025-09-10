@@ -343,13 +343,16 @@ export class RecipeService {
           unit: stock.unit, // Utiliser l'unité du stock pour la mise à jour
           stock: stock,
           // Calculer la nouvelle quantité base pour la DB
-          newBaseQuantity:
-            stock.product.packagingSize && stock.product.unitSize
-              ? quantityAfter /
-                (stock.product.packagingSize * stock.product.unitSize)
-              : stock.product.unitSize
-                ? quantityAfter / stock.product.unitSize
-                : quantityAfter,
+          // Extract nested ternary into an independent statement
+          newBaseQuantity: (() => {
+            if (stock.product.packagingSize && stock.product.unitSize) {
+              return quantityAfter / (stock.product.packagingSize * stock.product.unitSize);
+            } else if (stock.product.unitSize) {
+              return quantityAfter / stock.product.unitSize;
+            } else {
+              return quantityAfter;
+            }
+          })(),
         });
       }
 

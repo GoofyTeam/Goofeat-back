@@ -230,7 +230,14 @@ export class QuickActionController {
     };
 
     const color = colors[type];
-    const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    let icon: string;
+    if (type === 'success') {
+      icon = '✅';
+    } else if (type === 'error') {
+      icon = '❌';
+    } else {
+      icon = 'ℹ️';
+    }
 
     const html = `
     <!DOCTYPE html>
