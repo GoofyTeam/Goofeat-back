@@ -25,13 +25,13 @@ import { Stock } from './entities/stock.entity';
 export class StockService {
   constructor(
     @InjectRepository(Stock)
-    private stockRepository: Repository<Stock>,
+    private readonly stockRepository: Repository<Stock>,
     @InjectRepository(Product)
-    private productRepository: Repository<Product>,
-    private eventEmitter: EventEmitter2,
-    private unitConversionService: UnitConversionService,
-    private dlcRulesService: DlcRulesService,
-    private householdService: HouseholdService,
+    private readonly productRepository: Repository<Product>,
+    private readonly eventEmitter: EventEmitter2,
+    private readonly unitConversionService: UnitConversionService,
+    private readonly dlcRulesService: DlcRulesService,
+    private readonly householdService: HouseholdService,
   ) {}
 
   async createBulk(

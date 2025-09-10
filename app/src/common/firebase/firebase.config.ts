@@ -6,7 +6,7 @@ import * as admin from 'firebase-admin';
 export class FirebaseConfig {
   private app: admin.app.App;
 
-  constructor(private configService: ConfigService) {
+  constructor(private readonly configService: ConfigService) {
     this.initializeFirebase();
   }
 
