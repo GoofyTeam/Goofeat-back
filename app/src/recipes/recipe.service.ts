@@ -88,7 +88,7 @@ export class RecipeService {
       .leftJoinAndSelect('recipe.ingredients', 'recipeIngredient')
       .leftJoinAndSelect('recipeIngredient.ingredient', 'ingredient');
 
-    if (user && user.stocks && user.stocks.length > 0) {
+    if (user?.stocks && user.stocks.length > 0) {
       const userProductIds = user.stocks.map((stock) => stock.product.id);
 
       // Sous-requête pour trouver les recettes dont TOUS les ingrédients sont dans le stock de l'utilisateur

@@ -114,7 +114,7 @@ export class ChildStockService {
         user.id,
         stock.household.id,
       );
-      if (!membership || !membership.canEditStock) {
+      if (!membership?.canEditStock) {
         throw new ForbiddenException(
           "Vous n'avez pas les droits pour modifier ce stock",
         );

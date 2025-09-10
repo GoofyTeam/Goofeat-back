@@ -469,7 +469,7 @@ export class SpoonacularInstructionsSeedService {
    * Parse le header Retry-After de la réponse API
    */
   private parseRetryAfterHeader(headers: any): number | null {
-    if (!headers || !headers['retry-after']) return null;
+    if (!headers?.['retry-after']) return null;
 
     const retryAfter = headers['retry-after'];
     const seconds = parseInt(retryAfter, 10);
