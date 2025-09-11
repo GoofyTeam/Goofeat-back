@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DlcModule } from 'src/common/dlc/dlc.module';
+import { UnitConversionService } from 'src/common/units/unit-conversion.service';
 import { HouseholdModule } from 'src/households/household.module';
 import { Product } from 'src/products/entities/product.entity';
-import { UnitConversionService } from 'src/common/units/unit-conversion.service';
 import { ChildStockController } from './controllers/child-stock.controller';
 import { StockLogController } from './controllers/stock-log.controller';
 import { PendingStockAction } from './entities/pending-stock-action.entity';

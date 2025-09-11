@@ -108,4 +108,13 @@ export class CreateStockDto {
   @IsDate()
   @Type(() => Date)
   dlc?: Date;
+
+  @ApiProperty({
+    description: 'Identifiant du foyer auquel associer ce stock',
+    example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  householdId?: string;
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   ForbiddenException,
@@ -10,6 +11,7 @@ import { add } from 'date-fns';
 import { DlcRulesService } from 'src/common/dlc/dlc-rules.service';
 import { UnitConversionService } from 'src/common/units/unit-conversion.service';
 import { PieceUnit } from 'src/common/units/unit.enums';
+import { HouseholdService } from 'src/households/household.service';
 import { Product } from 'src/products/entities/product.entity';
 import { User } from 'src/users/entity/user.entity';
 import { Role } from 'src/users/enums/role.enum';
@@ -29,6 +31,7 @@ export class StockService {
     private eventEmitter: EventEmitter2,
     private unitConversionService: UnitConversionService,
     private dlcRulesService: DlcRulesService,
+    private householdService: HouseholdService,
   ) {}
 
   async createBulk(
@@ -59,7 +62,7 @@ export class StockService {
       createStockDto.dlc = add(new Date(), { days: dlcPrediction.days });
     }
 
-    const { productId, ...stockData } = createStockDto;
+    const { productId, householdId, ...stockData } = createStockDto;
 
     let totalQuantity = createStockDto.quantity;
     let baseUnit =
@@ -77,18 +80,48 @@ export class StockService {
       baseUnit = conversionResult.baseUnit;
     }
 
-    const stock = this.stockRepository.create({
+    // Si un householdId est fourni, on associe le stock au foyer
+    // Sinon c'est un stock personnel
+    const stockEntity: any = {
       ...stockData,
       user,
       product,
       totalQuantity,
       baseUnit,
-    });
-    const savedStock = await this.stockRepository.save(stock);
+    };
+
+    if (householdId) {
+      // Vérifier que l'utilisateur est membre du foyer
+      const membership = await this.householdService.getUserMembership(
+        user.id,
+        householdId,
+      );
+
+      if (!membership) {
+        throw new ForbiddenException("Vous n'êtes pas membre de ce foyer");
+      }
+
+      if (!membership.canEditStock) {
+        throw new ForbiddenException(
+          "Vous n'avez pas les droits pour ajouter des stocks dans ce foyer",
+        );
+      }
+
+      stockEntity.household = { id: householdId };
+      stockEntity.addedByMemberId = membership.id;
+    }
+
+    const stock = this.stockRepository.create(stockEntity);
+    const savedStockResult = await this.stockRepository.save(stock);
+
+    // TypeORM save renvoie l'entité sauvegardée
+    const savedStock = Array.isArray(savedStockResult)
+      ? savedStockResult[0]
+      : savedStockResult;
 
     const stockWithRelations = await this.stockRepository.findOne({
       where: { id: savedStock.id },
-      relations: ['product', 'user'],
+      relations: ['product', 'user', 'household'],
     });
 
     if (stockWithRelations) {
@@ -96,6 +129,7 @@ export class StockService {
         stock: stockWithRelations,
         user,
       });
+      return stockWithRelations;
     }
 
     return savedStock;
@@ -105,18 +139,56 @@ export class StockService {
     user: User,
     filterStockDto: FilterStockDto,
   ): Promise<{ data: Stock[]; total: number; page: number; limit: number }> {
-    const { page = 1, limit = 10, search } = filterStockDto;
+    const { page = 1, limit = 10, search, householdId } = filterStockDto;
     const skip = (page - 1) * limit;
 
-    const where: FindOptionsWhere<Stock> = { user: { id: user.id } };
+    let where: FindOptionsWhere<Stock> | FindOptionsWhere<Stock>[] = [];
 
+    if (householdId) {
+      // Si un householdId est spécifié, vérifier que l'utilisateur est membre
+      const membership = await this.householdService.getUserMembership(
+        user.id,
+        householdId,
+      );
+
+      if (!membership) {
+        throw new ForbiddenException("Vous n'êtes pas membre de ce foyer");
+      }
+
+      // Filtrer par foyer
+      where = { household: { id: householdId } };
+    } else {
+      // Sinon, retourner les stocks personnels ET ceux de tous les foyers de l'utilisateur
+      const userHouseholds = await this.householdService.findAll(user);
+
+      const whereConditions: FindOptionsWhere<Stock>[] = [
+        // Stocks personnels (sans foyer) - utiliser IsNull()
+        { user: { id: user.id } } as FindOptionsWhere<Stock>,
+      ];
+
+      // Ajouter les stocks de chaque foyer
+      for (const household of userHouseholds) {
+        whereConditions.push({ household: { id: household.id } });
+      }
+
+      where = whereConditions;
+    }
+
+    // Ajouter le filtre de recherche si nécessaire
     if (search) {
-      where.product = { name: ILike(`%${search}%`) };
+      if (Array.isArray(where)) {
+        where = where.map((w) => ({
+          ...w,
+          product: { name: ILike(`%${search}%`) },
+        }));
+      } else {
+        where.product = { name: ILike(`%${search}%`) };
+      }
     }
 
     const [data, total] = await this.stockRepository.findAndCount({
       where,
-      relations: ['product'],
+      relations: ['product', 'household', 'user'],
       take: limit,
       skip: skip,
       order: {
@@ -130,18 +202,36 @@ export class StockService {
   async findOne(id: string, currentUser: User): Promise<Stock> {
     const stock = await this.stockRepository.findOne({
       where: { id },
-      relations: ['user', 'product'],
+      relations: ['user', 'product', 'household'],
     });
     if (!stock) {
       throw new NotFoundException(`Stock avec l'ID ${id} non trouvé`);
     }
 
-    if (
-      !currentUser.roles.includes(Role.ADMIN) &&
-      stock.user.id !== currentUser.id
-    ) {
-      throw new ForbiddenException("Vous n'avez pas accès à cette ressource");
+    // Vérifier les permissions
+    if (stock.household) {
+      // Stock de foyer : vérifier que l'utilisateur est membre
+      const membership = await this.householdService.getUserMembership(
+        currentUser.id,
+        stock.household.id,
+      );
+      if (!membership) {
+        throw new ForbiddenException(
+          "Vous n'avez pas accès à ce stock de foyer",
+        );
+      }
+    } else {
+      // Stock personnel : vérifier que c'est bien le propriétaire
+      if (
+        !currentUser.roles.includes(Role.ADMIN) &&
+        stock.user.id !== currentUser.id
+      ) {
+        throw new ForbiddenException(
+          "Vous n'avez pas accès à ce stock personnel",
+        );
+      }
     }
+
     return stock;
   }
 
@@ -152,6 +242,23 @@ export class StockService {
   ): Promise<Stock> {
     const stock = await this.findOne(id, currentUser);
     const previousDlc = stock.dlc;
+
+    // Si le stock appartient à un foyer, vérifier les droits d'édition
+    if (stock.household) {
+      const membership = await this.householdService.getUserMembership(
+        currentUser.id,
+        stock.household.id,
+      );
+      if (membership) {
+        // Vérifier que l'utilisateur peut modifier les stocks
+        if (!membership.canEditStock) {
+          throw new ForbiddenException(
+            "Vous n'avez pas les droits pour modifier les stocks de ce foyer",
+          );
+        }
+        stock.lastUpdatedByMemberId = membership.id;
+      }
+    }
 
     const updatedStock = this.stockRepository.merge(stock, updateStockDto);
     const savedStock = await this.stockRepository.save(updatedStock);
@@ -175,12 +282,46 @@ export class StockService {
 
   async remove(id: string, currentUser: User): Promise<void> {
     const stock = await this.findOne(id, currentUser);
+
+    // Si le stock appartient à un foyer, vérifier les droits de suppression
+    if (stock.household) {
+      const membership = await this.householdService.getUserMembership(
+        currentUser.id,
+        stock.household.id,
+      );
+      if (membership && !membership.canEditStock) {
+        throw new ForbiddenException(
+          "Vous n'avez pas les droits pour supprimer les stocks de ce foyer",
+        );
+      }
+    }
+
     await this.stockRepository.delete(id);
 
     this.eventEmitter.emit('stock.deleted', {
       stock,
       user: currentUser,
     });
+  }
+
+  async getDefaultHouseholdId(user: User): Promise<string> {
+    const userHouseholds = await this.householdService.findAll(user);
+
+    if (userHouseholds.length === 0) {
+      throw new ForbiddenException(
+        "Vous devez être membre d'au moins un foyer pour créer des stocks",
+      );
+    }
+
+    if (userHouseholds.length === 1) {
+      // Un seul foyer, on l'utilise automatiquement
+      return userHouseholds[0].id;
+    }
+
+    // Plusieurs foyers, il faut spécifier lequel
+    throw new ForbiddenException(
+      'Vous êtes membre de plusieurs foyers. Veuillez spécifier householdId.',
+    );
   }
 
   async addStock(stockData: {
