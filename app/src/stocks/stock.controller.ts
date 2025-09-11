@@ -27,14 +27,18 @@ import { UpdateStockDto } from './dto/update-stock.dto';
 import { Stock } from './entities/stock.entity';
 import { StockService } from './stock.service';
 
-@ApiTags('stocks')
+@ApiTags('Stocks')
 @ApiBearerAuth()
-@Controller('stock')
+@Controller('stocks')
 @UseGuards(AuthGuard('jwt'))
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
-  @ApiOperation({ summary: 'Créer un nouveau stock' })
+  @ApiOperation({
+    summary: 'Créer un nouveau stock',
+    description:
+      "Crée un stock dans un foyer. Si householdId n'est pas spécifié, utilise le foyer par défaut de l'utilisateur.",
+  })
   @ApiBody({ type: CreateStockDto })
   @ApiResponse({
     status: 201,
@@ -44,11 +48,23 @@ export class StockController {
   @ApiResponse({ status: 400, description: 'Requête invalide' })
   @Post()
   @SerializationGroups('stock:read')
-  create(@Body() createStockDto: CreateStockDto, @CurrentUser() user: User) {
+  async create(
+    @Body() createStockDto: CreateStockDto,
+    @CurrentUser() user: User,
+  ) {
+    // Si pas de householdId spécifié, essayer de le détecter automatiquement
+    if (!createStockDto.householdId) {
+      createStockDto.householdId =
+        await this.stockService.getDefaultHouseholdId(user);
+    }
     return this.stockService.create(createStockDto, user);
   }
 
-  @ApiOperation({ summary: 'Créer plusieurs stocks en une seule requête' })
+  @ApiOperation({
+    summary: 'Créer plusieurs stocks en une seule requête',
+    description:
+      'Crée plusieurs stocks. Auto-détection du foyer si non spécifié.',
+  })
   @ApiBody({ type: [CreateStockDto] })
   @ApiResponse({
     status: 201,
@@ -58,14 +74,26 @@ export class StockController {
   @ApiResponse({ status: 400, description: 'Requête invalide' })
   @Post('bulk')
   @SerializationGroups('stock:read')
-  createBulk(
+  async createBulk(
     @Body() createStockDtos: CreateStockDto[],
     @CurrentUser() user: User,
   ) {
+    // Auto-détection du householdId pour tous les DTOs qui n'en ont pas
+    const defaultHouseholdId =
+      await this.stockService.getDefaultHouseholdId(user);
+    createStockDtos.forEach((dto) => {
+      if (!dto.householdId) {
+        dto.householdId = defaultHouseholdId;
+      }
+    });
     return this.stockService.createBulk(createStockDtos, user);
   }
 
-  @ApiOperation({ summary: 'Récupérer tous les stocks' })
+  @ApiOperation({
+    summary: 'Récupérer tous mes stocks',
+    description:
+      'Retourne les stocks de tous mes foyers. Peut être filtré par householdId.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Liste des stocks récupérée avec succès',
