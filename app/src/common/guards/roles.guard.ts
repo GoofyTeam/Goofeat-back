@@ -6,7 +6,7 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
@@ -19,7 +19,7 @@ export class RolesGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest<RequestWithUser>();
     // Ensure user object and roles exist. If you are using a JWT strategy,
     // the user object should be attached to the request.
-    if (!user || !user.roles) {
+    if (!user?.roles) {
       return false;
     }
     return requiredRoles.some((role) => user.roles?.includes(role));

@@ -29,7 +29,7 @@ export class OpenFoodFactsService implements ProductDataService {
     try {
       const response = await this.client.getProduct(barcode);
 
-      if (!response || !response.product) {
+      if (!response?.product) {
         throw new Error(`Produit non trouvé avec le code-barres ${barcode}`);
       }
 
@@ -47,11 +47,7 @@ export class OpenFoodFactsService implements ProductDataService {
     try {
       const brandResult = await this.client.getBrand(name);
 
-      if (
-        !brandResult ||
-        !brandResult.products ||
-        brandResult.products.length === 0
-      ) {
+      if (!brandResult?.products?.length) {
         this.logger.warn(`Aucun produit trouvé pour la marque ${name}`);
         return [];
       }

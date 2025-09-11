@@ -43,8 +43,8 @@ interface EmailVerificationToken {
 
 @Injectable()
 export class AuthService {
-  private passwordResetTokens = new Map<string, PasswordResetToken>();
-  private emailVerificationTokens = new Map<string, EmailVerificationToken>();
+  private readonly passwordResetTokens = new Map<string, PasswordResetToken>();
+  private readonly emailVerificationTokens = new Map<string, EmailVerificationToken>();
 
   constructor(
     private readonly usersService: UsersService,

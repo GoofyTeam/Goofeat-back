@@ -363,7 +363,7 @@ export class OcrReceiptService {
       confidence: receipt.parsingConfidence || 0,
       items,
       suggestedProducts: allSuggestions
-        .sort((a, b) => b.matchScore - a.matchScore)
+        .toSorted((a, b) => b.matchScore - a.matchScore)
         .slice(0, 10),
     };
   }

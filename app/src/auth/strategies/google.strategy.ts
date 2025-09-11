@@ -7,8 +7,8 @@ import {
   StrategyOptionsWithRequest,
   VerifyCallback,
 } from 'passport-google-oauth20';
-import { AuthService, OAuthUser } from '../auth.service';
-import { Request, Response } from 'express';
+import { AuthService } from '../auth.service';
+import { Request } from 'express';
 import { OAuthStateManager } from '../utils/oauth-state';
 
 @Injectable()
@@ -51,10 +51,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const user = await this.authService.findOrCreateOAuthUser({
       provider: 'google',
       providerId: profile.id,
-      email: emails && emails[0] ? emails[0].value : '',
-      firstName: name && name.givenName ? name.givenName : '',
-      lastName: name && name.familyName ? name.familyName : '',
-      picture: photos && photos[0] ? photos[0].value : undefined,
+      email: emails?.[0]?.value ?? '',
+      firstName: name?.givenName ?? '',
+      lastName: name?.familyName ?? '',
+      picture: photos?.[0]?.value,
     });
 
     done(null, user);

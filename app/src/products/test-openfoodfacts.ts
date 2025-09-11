@@ -26,7 +26,7 @@ async function testOpenFoodFacts() {
       product: APIResponse.Product;
     };
 
-    if (productData && productData.product) {
+    if (productData?.product) {
       console.log('✅ Produit trouvé:', productData.product.product_name);
       console.log('Code:', productData.product.code);
       console.log('Marque:', productData.product.brands);
@@ -40,9 +40,7 @@ async function testOpenFoodFacts() {
     const searchResult = await client.getBrand('nutella');
 
     if (
-      searchResult &&
-      searchResult.products &&
-      searchResult.products.length > 0
+      searchResult?.products?.length > 0
     ) {
       console.log(`✅ ${searchResult.products.length} produits trouvés`);
       console.log('Premier produit:', searchResult.products[0].product_name);
@@ -52,7 +50,7 @@ async function testOpenFoodFacts() {
 
     // Test de mappage des données
     console.log('\nTest 3: Mappage des données vers notre format ProductData');
-    if (productData && productData.product) {
+    if (productData?.product) {
       const mappedProduct: ProductData = {
         barcode: productData.product.code || productData.product._id,
         name: productData.product.product_name || 'Nom inconnu',

@@ -9,6 +9,8 @@ import {
   Min,
 } from 'class-validator';
 
+const TIME_HH_MM_REGEX = /^([01]?\d|2[0-3]):[0-5]\d$/;
+
 export class UpdateNotificationPreferencesDto {
   @ApiProperty({
     description: 'Activer les notifications push',
@@ -130,7 +132,7 @@ export class UpdateNotificationPreferencesDto {
   })
   @IsOptional()
   @IsString()
-  @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+  @Matches(TIME_HH_MM_REGEX, {
     message: "Le format de l'heure doit être HH:MM (ex: 22:00)",
   })
   quietHoursStart?: string;
@@ -143,7 +145,7 @@ export class UpdateNotificationPreferencesDto {
   })
   @IsOptional()
   @IsString()
-  @Matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+  @Matches(TIME_HH_MM_REGEX, {
     message: "Le format de l'heure doit être HH:MM (ex: 07:00)",
   })
   quietHoursEnd?: string;

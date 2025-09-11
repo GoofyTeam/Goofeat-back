@@ -389,7 +389,7 @@ export class PersonalDashboardService {
   }
 
   async getPersonalAchievements(user: User) {
-    const metrics = await this.getPersonalAntiWasteMetrics(user, '30d');
+    const _metrics = await this.getPersonalAntiWasteMetrics(user, '30d');
 
     return {
       personal: {

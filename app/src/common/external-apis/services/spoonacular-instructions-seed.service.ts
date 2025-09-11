@@ -248,11 +248,12 @@ export class SpoonacularInstructionsSeedService {
         }
 
         // Rate limiting intelligent: pause adaptative
-        const adaptiveDelay = respectApiLimits
-          ? result.totalErrors > 0
-            ? baseDelayMs * 2
-            : baseDelayMs
-          : baseDelayMs / 2; // Mode rapide si les limites ne sont pas respectées
+        let adaptiveDelay: number;
+        if (respectApiLimits) {
+          adaptiveDelay = result.totalErrors > 0 ? baseDelayMs * 2 : baseDelayMs;
+        } else {
+          adaptiveDelay = baseDelayMs / 2; // Mode rapide si les limites ne sont pas respectées
+        }
         await this.sleep(adaptiveDelay);
       }
 
@@ -469,7 +470,7 @@ export class SpoonacularInstructionsSeedService {
    * Parse le header Retry-After de la réponse API
    */
   private parseRetryAfterHeader(headers: any): number | null {
-    if (!headers || !headers['retry-after']) return null;
+    if (!headers?.['retry-after']) return null;
 
     const retryAfter = headers['retry-after'];
     const seconds = parseInt(retryAfter, 10);

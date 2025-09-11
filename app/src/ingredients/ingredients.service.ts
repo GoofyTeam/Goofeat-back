@@ -32,7 +32,7 @@ export class IngredientsService {
       .createQueryBuilder('ingredient')
       .take(limit);
 
-    if (search && search.trim()) {
+    if (search?.trim()) {
       const searchTerm = search.trim();
       queryBuilder.where(
         '(ingredient.name ILIKE :search OR ingredient.nameFr ILIKE :search OR ingredient.nameEn ILIKE :search)',

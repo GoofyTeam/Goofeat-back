@@ -161,7 +161,7 @@ export class ImageOptimizerService {
     }
 
     // Score basé sur le contraste (écart type des niveaux de gris)
-    if (stats.channels && stats.channels[0]) {
+    if (stats.channels?.[0]) {
       const contrast = stats.channels[0].stdev / 128; // Normalisé sur [0,1]
       qualityScore += Math.min(contrast, 1) * 0.3;
     }

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnitConversionService } from './unit-conversion.service';
-import { MassUnit, VolumeUnit, PieceUnit, Unit } from './unit.enums';
+import { MassUnit, VolumeUnit, PieceUnit } from './unit.enums';
 
 describe('UnitConversionService', () => {
   let service: UnitConversionService;
