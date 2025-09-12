@@ -14,6 +14,7 @@ import { Difficulty, NutriScore } from './dto/create-recipe.dto';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
 import { Recipe } from './entities/recipe.entity';
 import { RecipeService } from './recipe.service';
+import { UnitConversionService } from 'src/common/units/unit-conversion.service';
 
 describe('RecipeService', () => {
   let service: RecipeService;
@@ -28,7 +29,7 @@ describe('RecipeService', () => {
     firstName: 'Test',
     lastName: 'User',
     email: 'test@example.com',
-    password: 'hashedpassword',
+    password: 'hashedpassword', // NOSONAR - mock value for tests
     isActive: true,
     googleId: undefined,
     appleId: undefined,
@@ -174,6 +175,10 @@ describe('RecipeService', () => {
           useValue: {
             emit: jest.fn(),
           },
+        },
+        {
+          provide: UnitConversionService,
+          useValue: {},
         },
       ],
     }).compile();

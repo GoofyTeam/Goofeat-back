@@ -220,16 +220,13 @@ export class StockService {
           "Vous n'avez pas accès à ce stock de foyer",
         );
       }
-    } else {
-      // Stock personnel : vérifier que c'est bien le propriétaire
-      if (
-        !currentUser.roles.includes(Role.ADMIN) &&
-        stock.user.id !== currentUser.id
-      ) {
-        throw new ForbiddenException(
-          "Vous n'avez pas accès à ce stock personnel",
-        );
-      }
+    } else if (
+      !currentUser.roles.includes(Role.ADMIN) &&
+      stock.user.id !== currentUser.id
+    ) {
+      throw new ForbiddenException(
+        "Vous n'avez pas accès à ce stock personnel",
+      );
     }
 
     return stock;

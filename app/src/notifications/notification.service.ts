@@ -93,18 +93,12 @@ export class NotificationService {
       this.logger.log(`Notification envoyée avec succès: ${response}`);
       return true;
     } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(
-          `Erreur lors de l'envoi de la notification:`,
-          error.message,
-        );
-      } else {
-        this.logger.error(
-          `Erreur lors de l'envoi de la notification:`,
-          error.message,
-        );
-      }
+      this.logger.error(
+        `Erreur lors de l'envoi de la notification:`,
+        error instanceof Error ? error.message : String(error),
+      );
 
+      // Gérer les erreurs spécifiques
       if (error.code === 'messaging/registration-token-not-registered') {
         this.logger.warn(`Token FCM invalide pour l'utilisateur ${user.id}`);
         // TODO: Mettre à jour l'utilisateur pour supprimer le token invalide
@@ -284,8 +278,6 @@ export class NotificationService {
       const daysUntilExpiry = Math.ceil(
         (dlcDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
       );
-
-
 
       const criticality = getCriticality(daysUntilExpiry);
 

@@ -250,7 +250,8 @@ export class SpoonacularInstructionsSeedService {
         // Rate limiting intelligent: pause adaptative
         let adaptiveDelay: number;
         if (respectApiLimits) {
-          adaptiveDelay = result.totalErrors > 0 ? baseDelayMs * 2 : baseDelayMs;
+          adaptiveDelay =
+            result.totalErrors > 0 ? baseDelayMs * 2 : baseDelayMs;
         } else {
           adaptiveDelay = baseDelayMs / 2; // Mode rapide si les limites ne sont pas respectées
         }
@@ -487,7 +488,7 @@ export class SpoonacularInstructionsSeedService {
   private calculateBackoffDelay(attempt: number): number {
     // Backoff exponentiel: 2^attempt * 1000ms + jitter
     const baseDelay = Math.pow(2, attempt) * 1000;
-    const jitter = Math.random() * 1000; // 0-1000ms de variation
+    const jitter = Math.random() * 1000; // NOSONAR 0-1000ms de variation
     return Math.min(baseDelay + jitter, 30000); // Max 30 secondes
   }
 
