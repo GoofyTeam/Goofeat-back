@@ -1,3 +1,7 @@
 {
-  "prettier.configPath": "/Users/dev-tgamiette/Documents/git/github_perso/Goofeat-back/app/.prettierrc"
+  "prettier.configPath": "/Users/dev-tgamiette/Documents/git/github_perso/Goofeat-back/app/.prettierrc",
+  "sonarlint.connectedMode.project": {
+    "connectionId": "goofyteam",
+    "projectKey": "GoofyTeam_Goofeat-back"
+  }
 }
