@@ -12,6 +12,8 @@ import { Product } from '../products/entities/product.entity';
 import { Role } from '../users/enums/role.enum';
 import { Stock } from './entities/stock.entity';
 import { StockService } from './stock.service';
+import { HouseholdService } from 'src/households/household.service';
+import { HouseholdRole } from 'src/households/enums/household-role.enum';
 
 describe('StockService', () => {
   let service: StockService;
@@ -103,6 +105,38 @@ describe('StockService', () => {
           provide: DlcRulesService,
           useValue: {
             predictDefaultDlc: jest.fn(),
+          },
+        },
+
+        {
+          provide: HouseholdService,
+          useValue: {
+            findOne: jest.fn().mockResolvedValue({ id: 'h1', isActive: true }),
+
+            getUserMembership: jest.fn().mockResolvedValue({
+              id: 'mem1',
+              userId: '1',
+              householdId: 'h1',
+              role: HouseholdRole.ADMIN,
+              isActive: true,
+              canEditStock: true,
+              canViewAllStocks: true,
+              canInviteMembers: true,
+            }),
+
+            getHouseholdMembers: jest.fn().mockResolvedValue([]),
+            getSettings: jest.fn().mockResolvedValue({}),
+            updateSettings: jest.fn().mockResolvedValue({ id: 'h1' }),
+
+            create: jest.fn(),
+            findAll: jest.fn().mockResolvedValue([]),
+            update: jest.fn(),
+            remove: jest.fn(),
+            generateNewInviteCode: jest.fn().mockResolvedValue('ABC123'),
+            inviteMember: jest.fn(),
+            joinHousehold: jest.fn(),
+            updateMember: jest.fn(),
+            removeMember: jest.fn(),
           },
         },
       ],
@@ -250,16 +284,20 @@ describe('StockService', () => {
 
       const result = await service.findAll(mockUser as any, filterDto);
 
-      expect(stockRepository.findAndCount).toHaveBeenCalledWith({
-        where: expect.objectContaining({
-          user: { id: mockUser.id },
-          product: { name: expect.any(Object) },
+      expect(stockRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 10,
+          skip: 0,
+          order: { createdAt: 'DESC' },
+          relations: expect.arrayContaining(['product', 'household', 'user']),
+          where: expect.arrayContaining([
+            expect.objectContaining({
+              user: { id: mockUser.id },
+              product: { name: expect.any(Object) },
+            }),
+          ]),
         }),
-        relations: ['product'],
-        take: 10,
-        skip: 0,
-        order: { createdAt: 'DESC' },
-      });
+      );
       expect(result).toEqual({
         data: stocks,
         total: 1,
@@ -279,7 +317,7 @@ describe('StockService', () => {
 
       expect(stockRepository.findOne).toHaveBeenCalledWith({
         where: { id: '1' },
-        relations: ['user', 'product'],
+        relations: expect.arrayContaining(['user', 'product', 'household']),
       });
       expect(result).toEqual(mockStock);
     });

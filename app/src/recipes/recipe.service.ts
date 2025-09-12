@@ -346,7 +346,10 @@ export class RecipeService {
           // Extract nested ternary into an independent statement
           newBaseQuantity: (() => {
             if (stock.product.packagingSize && stock.product.unitSize) {
-              return quantityAfter / (stock.product.packagingSize * stock.product.unitSize);
+              return (
+                quantityAfter /
+                (stock.product.packagingSize * stock.product.unitSize)
+              );
             } else if (stock.product.unitSize) {
               return quantityAfter / stock.product.unitSize;
             } else {

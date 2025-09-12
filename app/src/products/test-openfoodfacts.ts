@@ -39,9 +39,7 @@ async function testOpenFoodFacts() {
     console.log('\nTest 2: Recherche de produits par marque (Nutella)');
     const searchResult = await client.getBrand('nutella');
 
-    if (
-      searchResult?.products?.length > 0
-    ) {
+    if (searchResult?.products?.length > 0) {
       console.log(`✅ ${searchResult.products.length} produits trouvés`);
       console.log('Premier produit:', searchResult.products[0].product_name);
     } else {

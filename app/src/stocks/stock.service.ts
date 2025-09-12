@@ -224,9 +224,9 @@ export class StockService {
       !currentUser.roles.includes(Role.ADMIN) &&
       stock.user.id !== currentUser.id
     ) {
-        throw new ForbiddenException(
-          "Vous n'avez pas accès à ce stock personnel",
-        );
+      throw new ForbiddenException(
+        "Vous n'avez pas accès à ce stock personnel",
+      );
     }
 
     return stock;
