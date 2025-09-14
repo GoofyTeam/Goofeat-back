@@ -6,6 +6,7 @@ import { UnitsModule } from 'src/common/units/units.module';
 import { IngredientsModule } from 'src/ingredients/ingredients.module';
 import { StockLog } from 'src/stocks/entities/stock-log.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
+import { StockModule } from 'src/stocks/stock.module';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
 import { Recipe } from './entities/recipe.entity';
 import { RecipeController } from './recipe.controller';
@@ -17,6 +18,7 @@ import { RecipeService } from './recipe.service';
     ElasticsearchModule,
     UnitsModule,
     IngredientsModule,
+    StockModule,
     EventEmitterModule.forRoot(),
   ],
   controllers: [RecipeController],
