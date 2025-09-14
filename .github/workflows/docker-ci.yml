@@ -42,7 +42,7 @@ jobs:
         working-directory: ./app
 
       - name: Type check
-        run: yarn type-check
+        run: yarn typecheck
         working-directory: ./app
 
       - name: Set image variables
