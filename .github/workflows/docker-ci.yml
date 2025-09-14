@@ -37,6 +37,14 @@ jobs:
         run: yarn install
         working-directory: ./app
 
+      - name: Build application
+        run: yarn build
+        working-directory: ./app
+
+      - name: Type check
+        run: yarn type-check
+        working-directory: ./app
+
       - name: Set image variables
         id: vars
         run: |
