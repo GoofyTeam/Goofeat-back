@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from 'src/auth/auth.module';
 import { ElasticsearchModule } from 'src/common/elasticsearch/elasticsearch.module';
 import { ExternalApisModule } from 'src/common/external-apis/external-apis.module';
+import { HouseholdModule } from 'src/households/household.module';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { IngredientsModule } from 'src/ingredients/ingredients.module';
 import { ProductModule } from 'src/products/product.module';
@@ -33,6 +34,7 @@ import {
     AuthModule,
     ElasticsearchModule,
     ExternalApisModule,
+    HouseholdModule,
     IngredientsModule,
     ProductModule,
     StockModule,
