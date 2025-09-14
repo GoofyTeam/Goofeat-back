@@ -25,6 +25,7 @@ import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { ElasticsearchService } from 'src/common/elasticsearch/elasticsearch.service';
 import { RecipeSearchResult } from 'src/common/elasticsearch/interfaces/recipe-search.interface';
 import { SerializationGroups } from 'src/common/serializer/serialization-groups.decorator';
+import { StockService } from 'src/stocks/stock.service';
 import { User } from 'src/users/entity/user.entity';
 import { UserPreferences } from 'src/users/interfaces/user-preferences.interface';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -41,6 +42,7 @@ export class RecipeController {
   constructor(
     private readonly recipeService: RecipeService,
     private readonly elasticsearchService: ElasticsearchService,
+    private readonly stockService: StockService,
   ) {}
 
   @Post()
@@ -100,7 +102,8 @@ export class RecipeController {
     @CurrentUser() user: User,
     @Query('query') query?: string,
   ): Promise<RecipeSearchResult> {
-    const userStocks = user.stocks || [];
+    const stockData = await this.stockService.findAll(user, { limit: 100 });
+    const userStocks = stockData.data || [];
     let userPreferences: UserPreferences = {};
     if (user.preferences) {
       if (typeof user.preferences === 'string') {
@@ -146,7 +149,8 @@ export class RecipeController {
   async findMakeableRecipes(
     @CurrentUser() user: User,
   ): Promise<RecipeSearchResult> {
-    const userStocks = user.stocks || [];
+    const stockData = await this.stockService.findAll(user, { limit: 100 });
+    const userStocks = stockData.data || [];
     const userPreferences = user.preferences || {};
 
     return this.elasticsearchService.findMakeableRecipes(
