@@ -9,6 +9,9 @@ import { AuthService } from 'src/auth/auth.service';
 import { ElasticsearchService } from 'src/common/elasticsearch/elasticsearch.service';
 import { IngredientMatcherHelper } from 'src/common/helpers/ingredient-matcher.helper';
 import { Unit } from 'src/common/units/unit.enums';
+import { HouseholdService } from 'src/households/household.service';
+import { CreateHouseholdDto } from 'src/households/dto/create-household.dto';
+import { HouseholdType } from 'src/households/enums/household-type.enum';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { IngredientsService } from 'src/ingredients/ingredients.service';
 import { CreateProductDto } from 'src/products/dto/create-product.dto';
@@ -812,6 +815,7 @@ export class SetupTestUserCommand extends CommandRunner {
     private readonly ingredientsService: IngredientsService,
     private readonly productService: ProductService,
     private readonly stockService: StockService,
+    private readonly householdService: HouseholdService,
     @InjectRepository(Ingredient)
     private readonly ingredientRepository: Repository<Ingredient>,
     private readonly ingredientMatcher: IngredientMatcherHelper,
@@ -880,7 +884,33 @@ export class SetupTestUserCommand extends CommandRunner {
 
       console.log(`✅ ${ingredientMap.size} ingrédients disponibles`);
 
-      // 3. Créer les produits avec matching intelligent des ingrédients
+      // 3. Créer un foyer pour l'utilisateur test
+      console.log('🏠 Création du foyer de test...');
+      let household: any;
+      try {
+        const existingHouseholds =
+          await this.householdService.findAll(testUser);
+        if (existingHouseholds.length > 0) {
+          household = existingHouseholds[0];
+          console.log(`✅ Foyer existant utilisé: ${household.name}`);
+        } else {
+          const createHouseholdDto: CreateHouseholdDto = {
+            name: 'Foyer de test mobile',
+            type: HouseholdType.SINGLE,
+            description: 'Foyer créé automatiquement pour les tests',
+          };
+          household = await this.householdService.create(
+            createHouseholdDto,
+            testUser,
+          );
+          console.log(`✅ Nouveau foyer créé: ${household.name}`);
+        }
+      } catch (error) {
+        console.error(`❌ Erreur création foyer: ${error.message}`);
+        process.exit(1);
+      }
+
+      // 4. Créer les produits avec matching intelligent des ingrédients
       console.log('🔗 Matching intelligent des ingrédients...');
 
       const createdProducts: Array<{ product: Product; config: any }> = [];
@@ -966,7 +996,7 @@ export class SetupTestUserCommand extends CommandRunner {
         }
       }
 
-      // 4. Nettoyer l'ancien stock si demandé
+      // 5. Nettoyer l'ancien stock si demandé
       if (shouldClear) {
         console.log("🗑️  Suppression de l'ancien stock...");
         try {
@@ -986,7 +1016,7 @@ export class SetupTestUserCommand extends CommandRunner {
         }
       }
 
-      // 5. Créer le nouveau stock en bulk
+      // 6. Créer le nouveau stock en bulk
       console.log('📦 Création du nouveau stock...');
 
       const stockDtos: CreateStockDto[] = createdProducts.map(
@@ -1013,11 +1043,12 @@ export class SetupTestUserCommand extends CommandRunner {
       );
       console.log(`✅ Stock créé: ${createdStocks.length} articles`);
 
-      // 6. Résumé final
+      // 7. Résumé final
       console.log('\n📊 RÉSUMÉ DU COMPTE TEST:');
       console.log(`📧 Email: ${TEST_USER_CONFIG.email}`);
       console.log(`🔑 Password: ${TEST_USER_CONFIG.password}`);
       console.log(`🆔 User ID: ${testUser.id}`);
+      console.log(`🏠 Foyer ID: ${household.id}`);
       console.log(`📦 Produits: ${createdProducts.length}`);
       console.log(`🏪 Articles en stock: ${createdStocks.length}`);
 
