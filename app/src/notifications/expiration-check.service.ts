@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Stock } from '../stocks/entities/stock.entity';
 import { User } from '../users/entity/user.entity';
+import { getCriticality } from './criticality';
 import { NotificationHistory } from './entities/notification-history.entity';
 import { NotificationType } from './enums/notification-type.enum';
 import { StockWithCriticality } from './interfaces/stock-with-criticality.interface';
@@ -45,12 +46,11 @@ export class ExpirationCheckService {
 
       let totalNotificationsSent = 0;
       for (const user of users) {
-        const preferences = user.preferences || {};
-        const notifications = preferences.notifications || {};
+        const notificationSettings = user.notificationSettings || {};
 
         if (
-          notifications.expirationAlerts === false ||
-          notifications.push === false
+          notificationSettings.stockExpirationEnabled === false ||
+          notificationSettings.pushNotificationsEnabled === false
         ) {
           continue;
         }
@@ -149,8 +149,7 @@ export class ExpirationCheckService {
 
       for (const user of users) {
         // Vérifier les préférences utilisateur
-        const preferences = user.preferences || {};
-        const notifications = preferences.notifications || {};
+        const notificationSettings = user.notificationSettings || {};
 
         const userExpiringStocks = await this.getExpiringStocksForUser(user);
 
@@ -176,8 +175,8 @@ export class ExpirationCheckService {
 
           // Vérifier si les notifications sont désactivées
           if (
-            notifications.expirationAlerts === false ||
-            notifications.push === false
+            notificationSettings.stockExpirationEnabled === false ||
+            notificationSettings.pushNotificationsEnabled === false
           ) {
             skipReason = 'Notifications désactivées dans les préférences';
             usersWithNotificationsDisabled++;
@@ -232,11 +231,11 @@ export class ExpirationCheckService {
   ): Promise<StockWithCriticality[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const preferences = user.preferences || {};
-    const notifications = preferences.notifications || {};
+    const notificationSettings = user.notificationSettings || {};
 
     // Utiliser le nombre de jours configuré ou 7 par défaut
-    const daysBefore = notifications.expirationDaysBefore || 7;
+    const daysBefore =
+      (notificationSettings.stockExpirationDays as number) || 7;
     const expirationDate = new Date();
     expirationDate.setDate(today.getDate() + daysBefore);
 
@@ -421,11 +420,11 @@ export class ExpirationCheckService {
     }
 
     const today = new Date();
-    const preferences = user.preferences || {};
-    const notifications = preferences.notifications || {};
+    const notificationSettings = user.notificationSettings || {};
 
     // Utiliser le nombre de jours configuré ou 3 par défaut
-    const daysBefore = notifications.expirationDaysBefore || 3;
+    const daysBefore =
+      (notificationSettings.stockExpirationDays as number) || 3;
     const expirationDate = new Date();
     expirationDate.setDate(today.getDate() + daysBefore);
 
