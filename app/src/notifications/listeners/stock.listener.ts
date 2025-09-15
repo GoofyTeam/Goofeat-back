@@ -68,7 +68,7 @@ export class StockListener {
       return;
     }
 
-    const daysBefore = notificationSettings.stockExpirationDays || 3;
+    const daysBefore = Number(notificationSettings.stockExpirationDays) || 3;
     const daysUntilExpiration = Math.ceil(
       (dlc.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
     );
