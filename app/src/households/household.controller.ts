@@ -20,9 +20,9 @@ import { SerializationGroups } from 'src/common/serializer/serialization-groups.
 import { User } from 'src/users/entity/user.entity';
 import { CreateHouseholdDto } from './dto/create-household.dto';
 import { InviteMemberDto, JoinHouseholdDto } from './dto/invite-member.dto';
+import { UpdateHouseholdSettingsDto } from './dto/update-household-settings.dto';
 import { UpdateHouseholdDto } from './dto/update-household.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
-import { UpdateHouseholdSettingsDto } from './dto/update-household-settings.dto';
 import { HouseholdMember } from './entities/household-member.entity';
 import { Household } from './entities/household.entity';
 import { HouseholdService } from './household.service';
@@ -93,14 +93,81 @@ export class HouseholdController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Supprimer un foyer' })
+  @ApiOperation({
+    summary: "Supprimer un foyer (échoue s'il y a des stocks actifs)",
+    description:
+      "Supprime le foyer seulement s'il n'y a pas de stocks non vides. Utilise la suppression forcée pour ignorer cette vérification.",
+  })
   @ApiResponse({ status: 200, description: 'Foyer supprimé' })
+  @ApiResponse({
+    status: 400,
+    description: 'Des stocks actifs empêchent la suppression',
+  })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: User,
   ): Promise<{ message: string }> {
     await this.householdService.remove(id, user);
     return { message: 'Foyer supprimé avec succès' };
+  }
+
+  @Delete(':id/force')
+  @ApiOperation({
+    summary: 'Suppression forcée du foyer avec nettoyage complet',
+    description:
+      'Supprime le foyer et tous ses stocks/membres. Action irréversible réservée aux administrateurs.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Foyer supprimé avec détails du nettoyage',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        deleted: {
+          type: 'object',
+          properties: {
+            stocks: { type: 'number' },
+            members: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  async forceRemove(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<{
+    message: string;
+    deleted: { stocks: number; members: number };
+  }> {
+    const result = await this.householdService.forceRemove(id, user);
+    return {
+      message: `Foyer supprimé définitivement avec ${result.deleted.stocks} stocks et ${result.deleted.members} membres`,
+      deleted: result.deleted,
+    };
+  }
+
+  @Post(':id/leave')
+  @ApiOperation({
+    summary: 'Quitter le foyer',
+    description:
+      'Permet à un membre de quitter proprement le foyer. Le dernier admin ne peut pas quitter.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Membre retiré du foyer avec succès',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Le dernier admin ne peut pas quitter',
+  })
+  async leaveHousehold(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<{ message: string }> {
+    await this.householdService.leaveHousehold(id, user);
+    return { message: 'Vous avez quitté le foyer avec succès' };
   }
 
   @Post(':id/generate-invite-code')

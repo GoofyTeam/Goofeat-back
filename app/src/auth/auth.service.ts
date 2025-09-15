@@ -5,7 +5,6 @@
 import {
   BadRequestException,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -171,7 +170,7 @@ export class AuthService {
 
     const user = await this.usersService.findOneByEmail(resetToken.email);
     if (!user) {
-      throw new NotFoundException('Utilisateur non trouvé');
+      throw new BadRequestException('Utilisateur non trouvé');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -190,7 +189,7 @@ export class AuthService {
       verificationToken.email,
     );
     if (!user) {
-      throw new NotFoundException('Utilisateur non trouvé');
+      throw new BadRequestException('Utilisateur non trouvé');
     }
 
     await this.usersService.updateEmailVerification(user.id, true);
