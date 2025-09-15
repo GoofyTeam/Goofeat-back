@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/unbound-method */
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { HouseholdRole } from 'src/households/enums/household-role.enum';
+import { HouseholdService } from 'src/households/household.service';
 import { Repository } from 'typeorm';
 import { DlcRulesService } from '../common/dlc/dlc-rules.service';
 import { UnitConversionService } from '../common/units/unit-conversion.service';
@@ -12,8 +14,6 @@ import { Product } from '../products/entities/product.entity';
 import { Role } from '../users/enums/role.enum';
 import { Stock } from './entities/stock.entity';
 import { StockService } from './stock.service';
-import { HouseholdService } from 'src/households/household.service';
-import { HouseholdRole } from 'src/households/enums/household-role.enum';
 
 describe('StockService', () => {
   let service: StockService;
@@ -196,7 +196,7 @@ describe('StockService', () => {
 
       await expect(
         service.create(mockCreateStockDto, mockUser as any),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should predict DLC when not provided', async () => {
@@ -336,7 +336,7 @@ describe('StockService', () => {
       jest.spyOn(stockRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.findOne('1', mockUser as any)).rejects.toThrow(
-        NotFoundException,
+        BadRequestException,
       );
     });
 
