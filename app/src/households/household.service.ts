@@ -130,14 +130,12 @@ export class HouseholdService {
     const household = await this.findOne(id, user);
     const membership = await this.getMembershipOrThrow(user.id, id);
 
-    // Seuls les ADMIN peuvent supprimer le foyer
     if (membership.role !== HouseholdRole.ADMIN) {
       throw new ForbiddenException(
         'Seuls les administrateurs peuvent supprimer le foyer',
       );
     }
 
-    // Vérifier s'il y a des stocks non vides
     const activeStocks = await this.stockRepository.count({
       where: {
         household: { id },
@@ -145,9 +143,17 @@ export class HouseholdService {
       },
     });
 
-    if (activeStocks > 0) {
+    const activeMembers = await this.memberRepository.count({
+      where: { householdId: id, isActive: true },
+    });
+
+    if (activeStocks > 0 || activeMembers > 1) {
+      const errors: string[] = [];
+      if (activeStocks > 0) errors.push(`${activeStocks} stocks actifs`);
+      if (activeMembers > 1) errors.push(`${activeMembers - 1} autres membres`);
+
       throw new BadRequestException(
-        `Impossible de supprimer le foyer : ${activeStocks} stocks actifs trouvés. Veuillez d'abord consommer ou supprimer les stocks.`,
+        `Impossible de supprimer le foyer : ${errors.join(' et ')} trouvé(s). Utilisez la suppression forcée pour ignorer ces vérifications.`,
       );
     }
 
@@ -217,10 +223,11 @@ export class HouseholdService {
       });
     }
 
-    // Supprimer d'abord tous les stocks du foyer
     await this.stockRepository.delete({ household: { id } });
 
-    // Puis supprimer le foyer (cascade supprimera les membres)
+    // Supprimer tous les membres du foyer avant de supprimer le foyer
+    await this.memberRepository.delete({ householdId: id });
+
     await this.householdRepository.remove(household);
 
     this.eventEmitter.emit('household.force.deleted', {
@@ -244,7 +251,29 @@ export class HouseholdService {
   async leaveHousehold(householdId: string, user: User): Promise<void> {
     const membership = await this.getMembershipOrThrow(user.id, householdId);
 
-    // Empêcher le dernier admin de quitter
+    const totalMembers = await this.memberRepository.count({
+      where: { householdId, isActive: true },
+    });
+
+    if (totalMembers === 1) {
+      const household = await this.findOne(householdId, user);
+
+      await this.stockRepository.delete({ household: { id: householdId } });
+
+      // Supprimer tous les membres du foyer avant de supprimer le foyer
+      await this.memberRepository.delete({ householdId });
+
+      await this.householdRepository.remove(household);
+
+      this.eventEmitter.emit('household.deleted.by.leave', {
+        household,
+        deletedBy: user,
+      });
+
+      return;
+    }
+
+    // Logique normale : empêcher le dernier admin de quitter
     if (membership.role === HouseholdRole.ADMIN) {
       const adminCount = await this.memberRepository.count({
         where: { householdId, role: HouseholdRole.ADMIN, isActive: true },
@@ -277,10 +306,9 @@ export class HouseholdService {
     householdId: string,
     user: User,
   ): Promise<string> {
-    const _household = await this.findOne(householdId, user);
+    await this.findOne(householdId, user); // Vérifier que l'utilisateur a accès au foyer
     const membership = await this.getMembershipOrThrow(user.id, householdId);
 
-    // Vérifier les permissions
     if (
       !membership.canInviteMembers &&
       membership.role !== HouseholdRole.ADMIN
@@ -312,7 +340,6 @@ export class HouseholdService {
       householdId,
     );
 
-    // Vérifier les permissions
     if (
       !inviterMembership.canInviteMembers &&
       inviterMembership.role !== HouseholdRole.ADMIN
@@ -322,7 +349,6 @@ export class HouseholdService {
       );
     }
 
-    // Vérifier si l'utilisateur existe
     const invitedUser = await this.userRepository.findOne({
       where: { email: inviteMemberDto.email },
     });
@@ -331,7 +357,6 @@ export class HouseholdService {
       throw new BadRequestException('Utilisateur spécifié non trouvé');
     }
 
-    // Vérifier s'il n'est pas déjà membre
     const existingMembership = await this.memberRepository.findOne({
       where: { userId: invitedUser.id, householdId },
     });
@@ -373,7 +398,6 @@ export class HouseholdService {
       throw new BadRequestException("Code d'invitation expiré");
     }
 
-    // Vérifier s'il n'est pas déjà membre
     const existingMembership = await this.memberRepository.findOne({
       where: { userId: user.id, householdId: household.id },
     });
@@ -382,7 +406,6 @@ export class HouseholdService {
       throw new BadRequestException('Vous êtes déjà membre de ce foyer');
     }
 
-    // Ajouter comme membre
     const newMember = this.memberRepository.create({
       userId: user.id,
       householdId: household.id,
@@ -470,7 +493,6 @@ export class HouseholdService {
       throw new BadRequestException('Membre non trouvé dans ce foyer');
     }
 
-    // Seuls les ADMIN peuvent supprimer d'autres membres
     if (
       removerMembership.role !== HouseholdRole.ADMIN &&
       memberToRemove.userId !== user.id
@@ -480,7 +502,6 @@ export class HouseholdService {
       );
     }
 
-    // Empêcher la suppression du dernier ADMIN
     if (memberToRemove.role === HouseholdRole.ADMIN) {
       const adminCount = await this.memberRepository.count({
         where: { householdId, role: HouseholdRole.ADMIN, isActive: true },
