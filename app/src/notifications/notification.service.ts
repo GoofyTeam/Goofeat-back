@@ -26,15 +26,14 @@ export class NotificationService {
   ) {}
 
   private shouldSendNotification(user: User, type: NotificationType): boolean {
-    const preferences = user.preferences || {};
-    const notifications = preferences.notifications || {};
+    const notificationSettings = user.notificationSettings || {};
 
-    if (notifications.push === false) {
+    if (notificationSettings.pushNotificationsEnabled === false) {
       return false;
     }
 
     if (type === NotificationType.EXPIRATION) {
-      if (notifications.expirationAlerts === false) {
+      if (notificationSettings.stockExpirationEnabled === false) {
         return false;
       }
     }

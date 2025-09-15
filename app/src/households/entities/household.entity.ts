@@ -87,13 +87,16 @@ export class Household {
   isActive: boolean;
 
   @OneToMany(() => HouseholdMember, (member) => member.household, {
-    cascade: true,
+    cascade: ['remove'],
+    onDelete: 'CASCADE',
   })
   @Expose({ groups: ['household:read'] })
   @Type(() => HouseholdMember)
   members: HouseholdMember[];
 
-  @OneToMany(() => Stock, (stock) => stock.household)
+  @OneToMany(() => Stock, (stock) => stock.household, {
+    onDelete: 'SET NULL',
+  })
   @Expose({ groups: ['household:read'] })
   @Type(() => Stock)
   stocks: Stock[];
