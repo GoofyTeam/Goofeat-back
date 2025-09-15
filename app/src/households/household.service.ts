@@ -6,8 +6,9 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Stock } from 'src/stocks/entities/stock.entity';
 import { User } from 'src/users/entity/user.entity';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
 import { CreateHouseholdDto } from './dto/create-household.dto';
 import { InviteMemberDto, JoinHouseholdDto } from './dto/invite-member.dto';
 import { UpdateHouseholdSettingsDto } from './dto/update-household-settings.dto';
@@ -27,6 +28,8 @@ export class HouseholdService {
     private readonly memberRepository: Repository<HouseholdMember>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Stock)
+    private readonly stockRepository: Repository<Stock>,
     private readonly eventEmitter: EventEmitter2,
     private readonly householdSettingsService: HouseholdSettingsService,
   ) {}
@@ -134,11 +137,139 @@ export class HouseholdService {
       );
     }
 
+    // Vérifier s'il y a des stocks non vides
+    const activeStocks = await this.stockRepository.count({
+      where: {
+        household: { id },
+        quantity: MoreThan(0),
+      },
+    });
+
+    if (activeStocks > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer le foyer : ${activeStocks} stocks actifs trouvés. Veuillez d'abord consommer ou supprimer les stocks.`,
+      );
+    }
+
+    // Notifier tous les membres avant suppression
+    const members = await this.memberRepository.find({
+      where: { householdId: id, isActive: true },
+      relations: ['user'],
+    });
+
+    for (const member of members) {
+      this.eventEmitter.emit('household.will.delete', {
+        member,
+        household,
+        deletedBy: user,
+      });
+    }
+
+    // Supprimer le foyer (les membres seront supprimés en cascade)
     await this.householdRepository.remove(household);
 
     this.eventEmitter.emit('household.deleted', {
       household,
       deletedBy: user,
+      membersNotified: members.length,
+    });
+  }
+
+  /**
+   * Suppression forcée du foyer avec nettoyage des stocks (uniquement pour les ADMIN)
+   */
+  async forceRemove(
+    id: string,
+    user: User,
+  ): Promise<{ deleted: { stocks: number; members: number } }> {
+    const household = await this.findOne(id, user);
+    const membership = await this.getMembershipOrThrow(user.id, id);
+
+    // Seuls les ADMIN peuvent forcer la suppression
+    if (membership.role !== HouseholdRole.ADMIN) {
+      throw new ForbiddenException(
+        'Seuls les administrateurs peuvent supprimer le foyer',
+      );
+    }
+
+    // Compter les éléments qui vont être supprimés
+    const stocksCount = await this.stockRepository.count({
+      where: { household: { id } },
+    });
+
+    const membersCount = await this.memberRepository.count({
+      where: { householdId: id, isActive: true },
+    });
+
+    // Notifier avant suppression
+    const members = await this.memberRepository.find({
+      where: { householdId: id, isActive: true },
+      relations: ['user'],
+    });
+
+    for (const member of members) {
+      this.eventEmitter.emit('household.force.delete', {
+        member,
+        household,
+        deletedBy: user,
+        stocksCount,
+        membersCount,
+      });
+    }
+
+    // Supprimer d'abord tous les stocks du foyer
+    await this.stockRepository.delete({ household: { id } });
+
+    // Puis supprimer le foyer (cascade supprimera les membres)
+    await this.householdRepository.remove(household);
+
+    this.eventEmitter.emit('household.force.deleted', {
+      household,
+      deletedBy: user,
+      stocksDeleted: stocksCount,
+      membersDeleted: membersCount,
+    });
+
+    return {
+      deleted: {
+        stocks: stocksCount,
+        members: membersCount,
+      },
+    };
+  }
+
+  /**
+   * Permettre à un membre de quitter le foyer proprement
+   */
+  async leaveHousehold(householdId: string, user: User): Promise<void> {
+    const membership = await this.getMembershipOrThrow(user.id, householdId);
+
+    // Empêcher le dernier admin de quitter
+    if (membership.role === HouseholdRole.ADMIN) {
+      const adminCount = await this.memberRepository.count({
+        where: { householdId, role: HouseholdRole.ADMIN, isActive: true },
+      });
+
+      if (adminCount === 1) {
+        throw new BadRequestException(
+          'Vous êtes le dernier administrateur. Transférez vos droits à un autre membre ou supprimez le foyer.',
+        );
+      }
+    }
+
+    // Désactiver les stocks personnels de l'utilisateur dans ce foyer
+    await this.stockRepository.update(
+      { user: { id: user.id }, household: { id: householdId } },
+      { quantity: 0 }, // Mettre la quantité à 0 plutôt que supprimer
+    );
+
+    // Supprimer le membre
+    await this.memberRepository.remove(membership);
+
+    this.eventEmitter.emit('household.member.left', {
+      member: membership,
+      household: { id: householdId },
+      leftBy: user,
     });
   }
 
@@ -197,7 +328,7 @@ export class HouseholdService {
     });
 
     if (!invitedUser) {
-      throw new NotFoundException('Utilisateur non trouvé');
+      throw new BadRequestException('Utilisateur spécifié non trouvé');
     }
 
     // Vérifier s'il n'est pas déjà membre
@@ -295,7 +426,7 @@ export class HouseholdService {
     });
 
     if (!memberToUpdate) {
-      throw new NotFoundException('Membre non trouvé');
+      throw new BadRequestException('Membre non trouvé dans ce foyer');
     }
 
     // Seuls les ADMIN peuvent modifier les autres membres
@@ -336,7 +467,7 @@ export class HouseholdService {
     });
 
     if (!memberToRemove) {
-      throw new NotFoundException('Membre non trouvé');
+      throw new BadRequestException('Membre non trouvé dans ce foyer');
     }
 
     // Seuls les ADMIN peuvent supprimer d'autres membres

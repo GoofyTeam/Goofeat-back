@@ -1,98 +1,194 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Goofeat Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend NestJS pour l'application mobile Goofeat - Un système de recommandations de recettes anti-gaspi basé sur les ingrédients disponibles.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Démarrage Rapide
 
-## Description
+### Prérequis
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- Node.js 18+
+- Yarn
+- Docker & Docker Compose
+- PostgreSQL, MongoDB, Elasticsearch
 
-## Project setup
+### Installation
 
 ```bash
-$ pnpm install
+# Installation des dépendances
+yarn install
+
+# Démarrer les services Docker
+docker compose up -d
+
+# Lancer les migrations
+yarn migration:run
+
+# Optionnel : Seeds la base avec des données de test
+yarn seed
 ```
 
-## Compile and run the project
+### Développement
 
 ```bash
-# development
-$ pnpm run start
+# Mode développement avec hot reload
+yarn start:dev
 
-# watch mode
-$ pnpm run start:dev
+# Mode debug
+yarn start:debug
 
-# production mode
-$ pnpm run start:prod
+# Build pour production
+yarn build && yarn start:prod
 ```
 
-## Run tests
+## 📚 Documentation
+
+- **API Swagger**: http://localhost:3000/api/docs
+- **Architecture**: Voir [CLAUDE.md](../CLAUDE.md) pour la documentation complète
+- **Système de recherche**: [SEARCH_LOGIC.md](../SEARCH_LOGIC.md) et [SEARCH_SCORING.md](../SEARCH_SCORING.md)
+- **Configuration des paramètres**: [SETTINGS_DOCUMENTATION.md](./SETTINGS_DOCUMENTATION.md)
+
+## 🧪 Tests
 
 ```bash
-# unit tests
-$ pnpm run test
+# Tests unitaires
+yarn test
 
-# e2e tests
-$ pnpm run test:e2e
+# Tests avec watch mode
+yarn test:watch
 
-# test coverage
-$ pnpm run test:cov
+# Tests avec coverage
+yarn test:cov
+
+# Tests end-to-end
+yarn test:e2e
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 🔧 Utilitaires
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+# Vérifier les expirations manuellement
+yarn check:expirations
+
+# Preview des notifications (sans envoyer)
+yarn check:expirations --dry-run
+
+# Tests de recherche
+yarn test:search
+
+# Import de recettes depuis Spoonacular
+yarn import:spoonacular:recipes
+
+# Créer un utilisateur de test pour mobile
+yarn cli setup:test-user
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 🏗️ Architecture
 
-## Resources
+### Structure des Modules
 
-Check out a few resources that may come in handy when working with NestJS:
+- `auth/` - Authentification JWT, OAuth (Google, Apple)
+- `users/` - Gestion utilisateurs et préférences
+- `products/` - Catalogue produits avec OpenFoodFacts
+- `recipes/` - CRUD recettes avec indexation Elasticsearch
+- `stocks/` - Inventaire utilisateur avec suivi d'expiration
+- `notifications/` - Push Firebase et emails d'alerte
+- `households/` - Gestion des foyers familiaux
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Services Partagés
 
-## Support
+- `common/elasticsearch/` - Service de recherche avec scoring personnalisé
+- `common/database/` - Configuration TypeORM et migrations
+- `common/mail/` - Service d'email avec templates Handlebars
+- `common/logger/` - Logging avec Winston et rotation quotidienne
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 🔍 Fonctionnalités Principales
 
-## Stay in touch
+### Système de Recherche Avancé
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- **Scoring personnalisé** basé sur les ingrédients possédés
+- **Priorité anti-gaspi** pour les produits proches d'expiration
+- **Filtrage par préférences** alimentaires et catégories
 
-## License
+### Notifications Intelligentes
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- **Alertes d'expiration** configurables par utilisateur
+- **Protection anti-spam** avec historique
+- **Mode digest** familial (instantané/quotidien/hebdomadaire)
+
+### Gestion Multi-foyers
+
+- **Types de foyers** : Famille, couple, colocation, personne seule
+- **Permissions différenciées** entre adultes et enfants
+- **Approbations automatiques** avec seuils configurables
+
+## 🌐 Services Docker
+
+```bash
+# Services disponibles après docker compose up -d
+- PostgreSQL: localhost:5432
+- MongoDB: localhost:27017
+- Elasticsearch: localhost:9200
+- Kibana: localhost:5601
+- MailHog (tests email): localhost:8025
+- Adminer (DB admin): localhost:8081
+```
+
+## 🔐 Variables d'Environnement
+
+Créez un fichier `.env` basé sur `.env.example` :
+
+```bash
+# Base de données
+DATABASE_URL="postgresql://user:pass@localhost:5432/goofeat"
+MONGODB_URI="mongodb://localhost:27017/goofeat"
+ELASTICSEARCH_URL="http://localhost:9200"
+
+# Authentification
+JWT_SECRET="your-super-secret-key"
+JWT_EXPIRES_IN="7d"
+
+# OAuth
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+
+# Firebase (notifications push)
+FIREBASE_PROJECT_ID="your-firebase-project"
+FIREBASE_SERVICE_ACCOUNT_PATH="./firebase-admin-key.json"
+
+# Email
+SMTP_HOST="smtp.mailtrap.io"
+SMTP_PORT=587
+SMTP_USER="your-smtp-user"
+SMTP_PASSWORD="your-smtp-password"
+
+# APIs externes
+SPOONACULAR_API_KEY="your-spoonacular-key"
+```
+
+## 📊 Monitoring et Logs
+
+- **Elasticsearch logs** indexés automatiquement
+- **Winston logging** avec rotation quotidienne
+- **Métriques de performance** sur les recherches
+- **Statistiques d'usage** par utilisateur
+
+## 🚀 Déploiement
+
+- **Conteneurisation** Docker multi-stage optimisée
+- **Infrastructure** Terraform sur AWS ECS
+- **CI/CD** GitHub Actions avec tests automatisés
+- **Monitoring** CloudWatch et logs centralisés
+
+Pour plus de détails sur le déploiement, voir [../app_infra/README.md](../app_infra/README.md).
+
+## 🤝 Contribution
+
+1. Fork le projet
+2. Créer une branche feature (`git checkout -b feature/amazing-feature`)
+3. Commit les changements (`git commit -m 'feat: add amazing feature'`)
+4. Push la branche (`git push origin feature/amazing-feature`)
+5. Ouvrir une Pull Request
+
+## 📄 License
+
+Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.

@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -52,7 +52,7 @@ export class StockService {
     });
 
     if (!product) {
-      throw new NotFoundException(
+      throw new BadRequestException(
         `Produit avec l'ID ${createStockDto.productId} non trouvé`,
       );
     }
@@ -205,7 +205,7 @@ export class StockService {
       relations: ['user', 'product', 'household'],
     });
     if (!stock) {
-      throw new NotFoundException(`Stock avec l'ID ${id} non trouvé`);
+      throw new BadRequestException(`Stock avec l'ID ${id} non trouvé`);
     }
 
     // Vérifier les permissions
@@ -337,7 +337,7 @@ export class StockService {
     });
 
     if (!product) {
-      throw new NotFoundException(
+      throw new BadRequestException(
         `Produit avec l'ID ${stockData.productId} non trouvé`,
       );
     }

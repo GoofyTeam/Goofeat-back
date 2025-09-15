@@ -1,7 +1,7 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -61,7 +61,9 @@ export class ChildStockService {
       householdId,
     );
     if (!stock) {
-      throw new NotFoundException('Produit non trouvé dans le stock du foyer');
+      throw new BadRequestException(
+        'Produit non trouvé dans le stock du foyer',
+      );
     }
 
     // Déterminer si l'action nécessite une approbation
@@ -105,7 +107,7 @@ export class ChildStockService {
     });
 
     if (!stock) {
-      throw new NotFoundException('Stock non trouvé');
+      throw new BadRequestException('Stock spécifié non trouvé');
     }
 
     // Vérifier les permissions
@@ -219,7 +221,7 @@ export class ChildStockService {
     });
 
     if (!pendingAction) {
-      throw new NotFoundException('Action en attente non trouvée');
+      throw new BadRequestException('Action en attente non trouvée');
     }
 
     if (pendingAction.status !== PendingActionStatus.PENDING) {

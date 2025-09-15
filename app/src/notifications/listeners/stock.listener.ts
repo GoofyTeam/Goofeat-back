@@ -59,17 +59,16 @@ export class StockListener {
     const today = new Date();
     const dlc = new Date(stock.dlc);
 
-    const preferences = stock.user.preferences || {};
-    const notifications = preferences.notifications || {};
+    const notificationSettings = stock.user.notificationSettings || {};
 
     if (
-      notifications.expirationAlerts === false ||
-      notifications.push === false
+      notificationSettings.stockExpirationEnabled === false ||
+      notificationSettings.pushNotificationsEnabled === false
     ) {
       return;
     }
 
-    const daysBefore = notifications.expirationDaysBefore || 3;
+    const daysBefore = notificationSettings.stockExpirationDays || 3;
     const daysUntilExpiration = Math.ceil(
       (dlc.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
     );
