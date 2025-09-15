@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -240,7 +240,7 @@ describe('ChildStockService', () => {
 
       await expect(
         service.processChildAction(mockChildActionDto, mockUser as any, '1'),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should determine approval needed for user with needsApproval flag', async () => {
@@ -342,7 +342,7 @@ describe('ChildStockService', () => {
 
       await expect(
         service.quickConsume(mockQuickConsumeDto, mockUser as any),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw ForbiddenException for member without edit permissions', async () => {
@@ -585,7 +585,7 @@ describe('ChildStockService', () => {
           'Approved',
           mockParentUser as any,
         ),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw ForbiddenException for already processed action', async () => {
