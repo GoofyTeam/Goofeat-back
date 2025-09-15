@@ -1,21 +1,22 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import {
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-} from '@nestjs/common';
-import { HouseholdService } from './household.service';
-import { Household } from './entities/household.entity';
-import { HouseholdMember } from './entities/household-member.entity';
+import { Stock } from '../stocks/entities/stock.entity';
 import { User } from '../users/entity/user.entity';
+import { HouseholdMember } from './entities/household-member.entity';
+import { Household } from './entities/household.entity';
 import { HouseholdRole } from './enums/household-role.enum';
 import { HouseholdType } from './enums/household-type.enum';
+import { HouseholdService } from './household.service';
 import { HouseholdSettingsService } from './services/household-settings.service';
 
 describe('HouseholdService', () => {
@@ -23,6 +24,7 @@ describe('HouseholdService', () => {
   let householdRepository: Repository<Household>;
   let memberRepository: Repository<HouseholdMember>;
   let userRepository: Repository<User>;
+  let stockRepository: Repository<Stock>;
   let eventEmitter: EventEmitter2;
   let householdSettingsService: HouseholdSettingsService;
 
@@ -110,6 +112,14 @@ describe('HouseholdService', () => {
           },
         },
         {
+          provide: getRepositoryToken(Stock),
+          useValue: {
+            count: jest.fn(),
+            delete: jest.fn(),
+            update: jest.fn(),
+          },
+        },
+        {
           provide: EventEmitter2,
           useValue: {
             emit: jest.fn(),
@@ -133,6 +143,7 @@ describe('HouseholdService', () => {
       getRepositoryToken(HouseholdMember),
     );
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    stockRepository = module.get<Repository<Stock>>(getRepositoryToken(Stock));
     eventEmitter = module.get<EventEmitter2>(EventEmitter2);
     householdSettingsService = module.get<HouseholdSettingsService>(
       HouseholdSettingsService,
@@ -335,6 +346,10 @@ describe('HouseholdService', () => {
         ...mockMember,
         role: HouseholdRole.ADMIN,
       });
+      jest.spyOn(stockRepository, 'count').mockResolvedValue(0);
+      jest
+        .spyOn(memberRepository, 'find')
+        .mockResolvedValue([mockMember] as any);
       jest.spyOn(householdRepository, 'remove').mockResolvedValue({} as any);
 
       await service.remove('1', mockUser as any);
