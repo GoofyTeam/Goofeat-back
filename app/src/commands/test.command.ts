@@ -9,9 +9,10 @@ import { AuthService } from 'src/auth/auth.service';
 import { ElasticsearchService } from 'src/common/elasticsearch/elasticsearch.service';
 import { IngredientMatcherHelper } from 'src/common/helpers/ingredient-matcher.helper';
 import { Unit } from 'src/common/units/unit.enums';
-import { HouseholdService } from 'src/households/household.service';
 import { CreateHouseholdDto } from 'src/households/dto/create-household.dto';
+import { Household } from 'src/households/entities/household.entity';
 import { HouseholdType } from 'src/households/enums/household-type.enum';
+import { HouseholdService } from 'src/households/household.service';
 import { Ingredient } from 'src/ingredients/entities/ingredient.entity';
 import { IngredientsService } from 'src/ingredients/ingredients.service';
 import { CreateProductDto } from 'src/products/dto/create-product.dto';
@@ -886,7 +887,7 @@ export class SetupTestUserCommand extends CommandRunner {
 
       // 3. Créer un foyer pour l'utilisateur test
       console.log('🏠 Création du foyer de test...');
-      let household: any;
+      let household: Household;
       try {
         const existingHouseholds =
           await this.householdService.findAll(testUser);
@@ -1025,6 +1026,7 @@ export class SetupTestUserCommand extends CommandRunner {
             productId: product.id,
             quantity: config.stockQuantity,
             unit: config.defaultUnit,
+            householdId: household.id,
           };
 
           if (config.needsDlc) {
