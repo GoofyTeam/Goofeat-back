@@ -72,7 +72,7 @@ export class StockService {
       const conversionResult =
         this.unitConversionService.calculateTotalQuantity(
           createStockDto.quantity,
-          createStockDto.unit || product.defaultUnit || PieceUnit.PIECE,
+          baseUnit,
           product.unitSize,
           product.packagingSize,
         );
@@ -80,8 +80,6 @@ export class StockService {
       baseUnit = conversionResult.baseUnit;
     }
 
-    // Si un householdId est fourni, on associe le stock au foyer
-    // Sinon c'est un stock personnel
     const stockEntity: any = {
       ...stockData,
       user,
@@ -188,7 +186,7 @@ export class StockService {
 
     const [data, total] = await this.stockRepository.findAndCount({
       where,
-      relations: ['product', 'household', 'user'],
+      relations: ['product', 'product.ingredients', 'household', 'user'],
       take: limit,
       skip: skip,
       order: {

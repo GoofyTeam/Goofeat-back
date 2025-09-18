@@ -17,7 +17,15 @@ export class Ingredient {
    */
   @ApiProperty({ description: 'Tag unique OFF', example: 'en:garlic-extract' })
   @Column({ type: 'varchar', unique: true, nullable: false })
-  @Expose({ groups: ['ingredient:read', 'product:barcode-min'] })
+  @Expose({
+    groups: [
+      'default',
+      'ingredient:read',
+      'product:barcode-min',
+      'recipe:list',
+      'recipe:read',
+    ],
+  })
   offTag: string;
 
   /**
@@ -25,7 +33,7 @@ export class Ingredient {
    */
   @ApiProperty({ description: 'Nom français', example: "Extrait d'ail" })
   @Column({ type: 'varchar', nullable: false })
-  @Expose({ groups: ['ingredient:read', 'stock:read'] })
+  @Expose({ groups: ['ingredient:read', 'stock:read', 'recipe:list'] })
   nameFr: string;
 
   /**
@@ -33,7 +41,7 @@ export class Ingredient {
    */
   @ApiProperty({ description: 'Nom anglais', example: 'Garlic extract' })
   @Column({ type: 'varchar', nullable: false })
-  @Expose({ groups: ['ingredient:read', 'stock:read'] })
+  @Expose({ groups: ['ingredient:read', 'stock:read', 'recipe:list'] })
   nameEn: string;
 
   /**
@@ -59,7 +67,16 @@ export class Ingredient {
   parentOffTags?: string[];
 
   @Expose({
-    groups: ['ingredient:list', 'ingredient:read', 'product:barcode-min'],
+    groups: [
+      'default',
+      'ingredient:list',
+      'ingredient:read',
+      'product:barcode-min',
+      'stock:list',
+      'stock:read',
+      'recipe:list',
+      'recipe:read',
+    ],
   })
   @ApiProperty({
     description: "Identifiant unique de l'ingrédient",
@@ -69,7 +86,14 @@ export class Ingredient {
   id: string;
 
   @Expose({
-    groups: ['ingredient:list', 'ingredient:read', 'product:barcode-min'],
+    groups: [
+      'default',
+      'ingredient:list',
+      'ingredient:read',
+      'product:barcode-min',
+      'stock:list',
+      'recipe:list',
+    ],
   })
   @ApiProperty({
     description: "Nom de l'ingrédient générique",

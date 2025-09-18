@@ -6,7 +6,10 @@ import { StockLog, StockLogAction } from '../entities/stock-log.entity';
 import { Stock } from '../entities/stock.entity';
 
 export interface CreateStockLogDto {
-  stock: Stock;
+  stock?: Stock;
+  stockId?: string;
+  productName?: string;
+  productUnit?: string;
   user: User;
   action: StockLogAction;
   quantityBefore: number;
@@ -32,6 +35,9 @@ export class StockLogService {
   async createLog(logData: CreateStockLogDto): Promise<StockLog> {
     const log = this.stockLogRepository.create({
       stock: logData.stock,
+      stockId: logData.stockId,
+      productName: logData.productName,
+      productUnit: logData.productUnit,
       user: logData.user,
       action: logData.action,
       quantityBefore: logData.quantityBefore,
@@ -96,12 +102,15 @@ export class StockLogService {
     metadata?: Record<string, any>,
   ): Promise<StockLog> {
     return this.createLog({
-      stock,
+      stockId: stock.id,
+      productName: stock.product?.name,
+      productUnit: stock.unit,
       user,
       action: StockLogAction.DELETE,
       quantityBefore: stock.quantity,
       quantityAfter: 0,
       quantityWasted: stock.quantity,
+      dlcBefore: stock.dlc,
       reason,
       metadata,
     });

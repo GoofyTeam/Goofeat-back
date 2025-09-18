@@ -179,7 +179,7 @@ export class Recipe {
   @Column({ type: 'jsonb', nullable: true })
   instructions?: any[];
 
-  @Expose({ groups: ['default', 'recipe:read'] })
+  @Expose({ groups: ['default', 'recipe:read', 'recipe:list'] })
   @ApiProperty({
     description: 'Ingrédients nécessaires',
     type: () => [RecipeIngredient],

@@ -533,7 +533,14 @@ export class RecipeService {
       return { success: false, stockUsages: [], totalQuantity: 0 };
     }
 
+    const now = new Date();
     const stocksWithAvailableQuantity = stocks
+      .filter((stock) => {
+        // Filtrer les stocks périmés
+        const dlcDate =
+          typeof stock.dlc === 'string' ? new Date(stock.dlc) : stock.dlc;
+        return dlcDate > now;
+      })
       .map((stock) => {
         const stockUnit = stock.unit || stock.product.defaultUnit;
         if (!stockUnit) return null;

@@ -142,16 +142,59 @@ export class RecipeController {
     summary:
       'Trouver des recettes entièrement réalisables avec le stock actuel',
   })
+  @ApiQuery({
+    name: 'householdId',
+    required: false,
+    description: 'ID du foyer pour filtrer les stocks (optionnel)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Liste des recettes réalisables, ordonnées par pertinence',
   })
   async findMakeableRecipes(
     @CurrentUser() user: User,
+    @Query('householdId') householdId?: string,
   ): Promise<RecipeSearchResult> {
-    const stockData = await this.stockService.findAll(user, { limit: 100 });
+    const stockData = await this.stockService.findAll(user, {
+      limit: 1000,
+      householdId: householdId,
+    });
     const userStocks = stockData.data || [];
     const userPreferences = user.preferences || {};
+
+    // Debug logging
+    this.logger.log(`User ID: ${user.id}, Email: ${user.email}`);
+    this.logger.log(
+      `HouseholdId filter: ${householdId || 'None (all households)'}`,
+    );
+    this.logger.log(`Stock count: ${userStocks.length}`);
+
+    // Debug ingredient mapping
+    const stocksWithIngredients = userStocks.filter(
+      (stock) => stock.product?.ingredients?.length > 0,
+    );
+    this.logger.log(
+      `Stocks with ingredient mapping: ${stocksWithIngredients.length}/${userStocks.length}`,
+    );
+
+    if (userStocks.length > 0) {
+      this.logger.log(
+        `First stock sample: ${JSON.stringify(
+          {
+            id: userStocks[0]?.id,
+            productName: userStocks[0]?.product?.name,
+            hasIngredients: !!userStocks[0]?.product?.ingredients?.length,
+            ingredients:
+              userStocks[0]?.product?.ingredients?.map((ing) => ({
+                id: ing.id,
+                name: ing.name,
+              })) || [],
+          },
+          null,
+          2,
+        )}`,
+      );
+    }
 
     return this.elasticsearchService.findMakeableRecipes(
       userPreferences,

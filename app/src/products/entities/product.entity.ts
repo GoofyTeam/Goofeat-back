@@ -171,7 +171,15 @@ export class Product {
     joinColumn: { name: 'productId', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'ingredientId', referencedColumnName: 'id' },
   })
-  @Expose({ groups: ['product:read', 'product:barcode-min', 'stock:read'] })
+  @Expose({
+    groups: [
+      'product:read',
+      'product:barcode-min',
+      'stock:read',
+      'stock:list',
+      'default',
+    ],
+  })
   @Type(() => Ingredient)
   ingredients: Ingredient[];
 

@@ -63,20 +63,4 @@ export class IngredientsController {
   async findOne(@Param('id') id: string): Promise<Ingredient> {
     return this.ingredientsService.findOne(id);
   }
-
-  @Post()
-  @ApiOperation({ summary: 'Créer un nouvel ingrédient' })
-  @ApiResponse({
-    status: 201,
-    description: 'Ingrédient créé avec succès',
-    type: Ingredient,
-  })
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @SerializationGroups('ingredient:read')
-  async create(
-    @Body(ValidationPipe) createIngredientDto: CreateIngredientDto,
-  ): Promise<Ingredient> {
-    return this.ingredientsService.create(createIngredientDto);
-  }
 }
