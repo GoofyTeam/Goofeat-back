@@ -4,6 +4,11 @@ metadata:
   name: goofeat-back
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: goofeat-back
@@ -22,15 +27,34 @@ spec:
           ports:
             - containerPort: 3000
               protocol: TCP
-          # livenessProbe:
-          #   httpGet:
-          #     path: /api/v1/health
-          #     port: 3000
-          #   initialDelaySeconds: 30
-          #   periodSeconds: 10
-          # readinessProbe:
-          #   httpGet:
-          #     path: /api/v1/health
-          #     port: 3000
-          #   initialDelaySeconds: 5
-          #   periodSeconds: 5
+          resources:
+            requests:
+              memory: '256Mi'
+              cpu: '100m'
+            limits:
+              memory: '1Gi'
+              cpu: '500m'
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12

@@ -127,14 +127,18 @@ jobs:
             echo "GHCR credentials optionnelles non fournies. Utilisation des credentials par défaut."
           fi
 
-      - name: Deploy with Kustomize
+      - name: Deploy with Kustomize and force rollout
         run: |
-          cd k8s/overlays/local
+          cd k8s/overlays/prod
           kustomize edit set image goofeat-back=${{ needs.build-and-push.outputs.image_ref }}
           kustomize build . | kubectl apply -n ${{ env.NAMESPACE }} -f -
 
-      - name: Wait for deployment
-        run: kubectl -n ${{ env.NAMESPACE }} rollout status deployment/goofeat-back --timeout=300s
+          # Force rollout en cas d'image identique
+          kubectl -n ${{ env.NAMESPACE }} patch deployment goofeat-back \
+            -p '{"spec":{"template":{"metadata":{"annotations":{"deployment.kubernetes.io/restart":"'"$(date +%s)"'"}}}}}'
+
+          # Attendre le déploiement
+          kubectl -n ${{ env.NAMESPACE }} rollout status deployment/goofeat-back --timeout=300s
 
       - name: Get deployment status
         run: |
