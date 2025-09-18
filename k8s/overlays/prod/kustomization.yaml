@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: goofeat
+
+resources:
+  - ../../base
+  # - certificate.yaml  # Temporairement désactivé - réactiver après installation cert-manager
+
+images:
+  - name: goofeat-back
+    newTag: latest
+
+patches:
+  # Ingress simple sans SSL (Apache gère le SSL)
+  - patch: |
+      - op: replace
+        path: /spec/rules/0/host
+        value: tedjy.ddns.net
+    target:
+      kind: Ingress
+      name: goofeat-back-ingress
+
+  # HPA pour load balancing
+  - patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+      - op: replace
+        path: /spec/maxReplicas
+        value: 5
+    target:
+      kind: HorizontalPodAutoscaler
+      name: goofeat-back-hpa
+
+labels:
+  - pairs:
+      environment: production
+    includeSelectors: false

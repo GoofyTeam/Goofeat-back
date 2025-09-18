@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: goofeat-dev
+
+resources:
+- ../../base
+
+images:
+- name: goofeat-back
+  newTag: dev-latest
+
+patches:
+- patch: |
+    - op: replace
+      path: /spec/replicas
+      value: 1
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: NODE_ENV
+        value: development
+  target:
+    kind: Deployment
+    name: goofeat-back
+
+- patch: |
+    - op: replace
+      path: /spec/type
+      value: NodePort
+    - op: add
+      path: /spec/ports/0/nodePort
+      value: 30081
+  target:
+    kind: Service
+    name: goofeat-back
+
+- patch: |
+    - op: replace
+      path: /spec/rules/0/host
+      value: dev.tedjy.ddns.net
+  target:
+    kind: Ingress
+    name: goofeat-back-ingress
+
+labels:
+- pairs:
+    environment: development
+    deployment-method: self-hosted
+  includeSelectors: false
