@@ -67,14 +67,13 @@ services:
     container_name: goofeat-elasticsearch
     restart: unless-stopped
     environment:
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-      - KIBANA_PASSWORD=${KIBANA_PASSWORD}
       - discovery.type=single-node
       - xpack.security.enabled=false
       - xpack.security.http.ssl.enabled=false
-      - xpack.security.http.ssl.verification_mode=none
     ports:
       - '9200:9200'
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
     networks:
       - goofeat-network
     healthcheck:
@@ -87,13 +86,12 @@ services:
     container_name: goofeat-kibana
     restart: unless-stopped
     environment:
-      - ELASTICSEARCH_HOSTS=http://localhost:9200
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-      - KIBANA_PASSWORD=${KIBANA_PASSWORD}
-      - discovery.type=single-node
-      - ELASTICSEARCH_SSL_VERIFICATIONMODE=${ELASTICSEARCH_SSL_VERIFICATIONMODE-none}
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_SSL_VERIFICATIONMODE=none
     ports:
       - '5601:5601'
+    volumes:
+      - kibana_data:/usr/share/kibana/data
     networks:
       - goofeat-network
     depends_on:
@@ -120,6 +118,8 @@ services:
 volumes:
   postgres_data:
   mongodb_data:
+  elasticsearch_data:
+  kibana_data:
 
 # Définition du réseau
 networks:

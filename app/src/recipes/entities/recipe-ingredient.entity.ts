@@ -37,7 +37,9 @@ export class RecipeIngredient {
   @JoinColumn({ name: 'recipeId' })
   recipe: Recipe;
 
-  @Expose({ groups: ['recipe:read', 'recipe-ingredient:read'] })
+  @Expose({
+    groups: ['recipe:read', 'recipe-ingredient:read', 'recipe:list', 'default'],
+  })
   @ApiProperty({
     description: 'Quantité nécessaire',
     example: 4,
@@ -45,7 +47,9 @@ export class RecipeIngredient {
   @Column({ type: 'float' })
   quantity: number;
 
-  @Expose({ groups: ['recipe:read', 'recipe-ingredient:read'] })
+  @Expose({
+    groups: ['recipe:read', 'recipe-ingredient:read', 'default', 'recipe:list'],
+  })
   @ApiProperty({
     description: 'Unité de mesure',
     example: 'pièce',
@@ -61,7 +65,7 @@ export class RecipeIngredient {
   @Column({ type: 'boolean', default: false })
   isOptional: boolean;
 
-  @Expose({ groups: ['recipe:read', 'recipe-ingredient:read'] })
+  @Expose({ groups: ['recipe-ingredient:read', 'default'] })
   @ApiProperty({
     description: "Identifiant de l'ingrédient générique associé",
     example: '550e8400-e29b-41d4-a716-446655440000',
@@ -71,7 +75,9 @@ export class RecipeIngredient {
 
   @ManyToOne(() => Ingredient, { eager: true, nullable: false })
   @JoinColumn({ name: 'ingredientId' })
-  @Expose({ groups: ['recipe:read', 'recipe-ingredient:read'] })
+  @Expose({
+    groups: ['recipe:read', 'recipe-ingredient:read', 'default', 'recipe:list'],
+  })
   @Type(() => Ingredient)
   ingredient: Ingredient;
 

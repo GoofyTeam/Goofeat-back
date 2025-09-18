@@ -27,7 +27,10 @@ export class IngredientsService {
     return ingredient;
   }
 
-  async searchIngredients(search?: string, limit = 10): Promise<Ingredient[]> {
+  async searchIngredients(
+    search?: string,
+    limit = 10000,
+  ): Promise<Ingredient[]> {
     const queryBuilder = this.ingredientRepository
       .createQueryBuilder('ingredient')
       .take(limit);

@@ -25,9 +25,9 @@ export class StockLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Stock, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Stock, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'stock_id' })
-  stock: Stock;
+  stock?: Stock;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
@@ -63,6 +63,15 @@ export class StockLog {
 
   @Column({ type: 'text', nullable: true })
   reason: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  stockId?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  productName?: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  productUnit?: string;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;

@@ -19,8 +19,8 @@ export interface RecipeIngredient {
   unit: string;
   isOptional?: boolean;
   nutriScore?: string;
-  productId: string;
-  product?: Product;
+  // productId: string;
+  // product?: Product;
 }
 
 //TODO a modifier apres

@@ -3,6 +3,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ElasticsearchService as NestElasticsearchService } from '@nestjs/elasticsearch';
 import { UnitConversionService } from 'src/common/units/unit-conversion.service';
+import { PieceUnit } from 'src/common/units/unit.enums';
 import { Recipe } from 'src/recipes/entities/recipe.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import { UserPreferences } from 'src/users/interfaces/user-preferences.interface';
@@ -73,7 +74,7 @@ export class ElasticsearchService implements OnModuleInit {
                   name: { type: 'text', analyzer: 'french' },
                   quantity: { type: 'double' },
                   unit: { type: 'keyword' },
-                  productId: { type: 'keyword' },
+                  // productId: { type: 'keyword' },
                   normalizedQuantity: { type: 'double' },
                   baseUnit: { type: 'keyword' },
                 },
@@ -93,7 +94,7 @@ export class ElasticsearchService implements OnModuleInit {
   }
 
   private _transformRecipeForIndex(recipe: Recipe): RecipeTemp {
-    const { id, ingredients, ...restOfRecipe } = recipe;
+    const { id, ingredients, instructions, ...restOfRecipe } = recipe;
     return {
       ...restOfRecipe,
       id,
@@ -107,8 +108,9 @@ export class ElasticsearchService implements OnModuleInit {
           name: ing.ingredient.name,
           quantity: ing.quantity,
           unit: ing.unit,
-          productId: ing.ingredient.products?.[0]?.id,
+          // productId: ing.ingredient.products?.[0]?.id,
           normalizedQuantity,
+          offTag: ing.ingredient.offTag,
           baseUnit,
         };
       }),
@@ -145,23 +147,51 @@ export class ElasticsearchService implements OnModuleInit {
 
   private createStocksMap(stocks: Stock[]) {
     const stocksMap: Record<string, StockInfo> = {};
+    const now = new Date();
+
     for (const stock of stocks) {
-      if (
-        stock.product.id &&
-        stock.unit &&
-        stock.product.ingredients?.[0]?.id
-      ) {
+      if (stock.product.id && stock.product.ingredients?.[0]?.id) {
+        // Filtrer les produits périmés
+        const dlcDate =
+          typeof stock.dlc === 'string' ? new Date(stock.dlc) : stock.dlc;
+        if (dlcDate <= now) {
+          continue; // Ignorer les stocks périmés
+        }
+
+        // Utiliser la même logique de cascade que dans stock.service
+        const effectiveUnit =
+          stock.unit || stock.product.defaultUnit || PieceUnit.PIECE;
+
         const { value: normalizedQuantity, unit: baseUnit } =
-          this.unitConversionService.normalize(stock.quantity, stock.unit);
+          this.unitConversionService.normalize(stock.quantity, effectiveUnit);
 
         const ingredientId = stock.product.ingredients[0].id;
 
-        stocksMap[ingredientId] = {
-          normalizedQuantity,
-          baseUnit,
-          dlc: stock.dlc,
-          ingredientId,
-        };
+        // Créer une clé unique par ingrédient ET type d'unité de base
+        const stockKey = `${ingredientId}_${baseUnit}`;
+
+        // Si la clé existe déjà, additionner les quantités
+        if (stocksMap[stockKey]) {
+          stocksMap[stockKey].normalizedQuantity += normalizedQuantity;
+
+          // Garder la DLC la plus proche pour l'anti-gaspillage
+          const existingDlc =
+            typeof stocksMap[stockKey].dlc === 'string'
+              ? new Date(stocksMap[stockKey].dlc)
+              : stocksMap[stockKey].dlc;
+
+          if (existingDlc && dlcDate < existingDlc) {
+            stocksMap[stockKey].dlc = stock.dlc;
+          }
+        } else {
+          // Nouvelle entrée
+          stocksMap[stockKey] = {
+            normalizedQuantity,
+            baseUnit,
+            dlc: stock.dlc,
+            ingredientId,
+          };
+        }
       }
     }
     return stocksMap;
@@ -169,13 +199,42 @@ export class ElasticsearchService implements OnModuleInit {
 
   private createDlcMap(stocks: Stock[]) {
     const dlcMap: Record<string, string> = {};
+    const now = new Date();
+
     for (const stock of stocks) {
       if (stock.product.id && stock.dlc && stock.product.ingredients?.[0]?.id) {
         // Convertir stock.dlc en Date si c'est une string
         const dlcDate =
           typeof stock.dlc === 'string' ? new Date(stock.dlc) : stock.dlc;
+
+        // Filtrer les produits périmés
+        if (dlcDate <= now) {
+          continue; // Ignorer les stocks périmés
+        }
+
+        // Utiliser la même logique de cascade que dans stock.service
+        const effectiveUnit =
+          stock.unit || stock.product.defaultUnit || PieceUnit.PIECE;
+
+        const { unit: baseUnit } = this.unitConversionService.normalize(
+          stock.quantity,
+          effectiveUnit,
+        );
+
         const ingredientId = stock.product.ingredients[0].id;
-        dlcMap[ingredientId] = dlcDate.toISOString();
+
+        // Créer une clé unique par ingrédient ET type d'unité de base
+        const dlcKey = `${ingredientId}_${baseUnit}`;
+
+        // Garder la DLC la plus proche pour l'anti-gaspillage
+        if (dlcMap[dlcKey]) {
+          const existingDlcDate = new Date(dlcMap[dlcKey]);
+          if (dlcDate < existingDlcDate) {
+            dlcMap[dlcKey] = dlcDate.toISOString();
+          }
+        } else {
+          dlcMap[dlcKey] = dlcDate.toISOString();
+        }
       }
     }
     return dlcMap;
@@ -185,8 +244,11 @@ export class ElasticsearchService implements OnModuleInit {
     preferences: UserPreferences,
     stocks: Stock[],
   ): Promise<RecipeSearchResult> {
+    this.logger.log(`findMakeableRecipes called with ${stocks.length} stocks`);
+
     // Si pas de stock, retourner des résultats vides
     if (stocks.length === 0) {
+      this.logger.log('No stocks available');
       return {
         total: 0,
         results: [],
@@ -205,11 +267,18 @@ export class ElasticsearchService implements OnModuleInit {
         function_score: {
           query: {
             bool: {
-              must: [
-                {
-                  match_all: {}, // Récupérer toutes les recettes
+              must: {
+                bool: {
+                  should: stocks
+                    .filter((stock) => stock.product.ingredients?.[0]?.id)
+                    .map((stock) => ({
+                      term: {
+                        'ingredients.id': stock.product.ingredients[0].id,
+                      },
+                    })),
+                  minimum_should_match: 1,
                 },
-              ],
+              },
               should: (preferences.preferredCategories || []).map(
                 (category) => ({
                   match: {
@@ -224,26 +293,80 @@ export class ElasticsearchService implements OnModuleInit {
             },
           },
           functions: [
-            // Score de disponibilité (doit être à 1.0 pour être réalisable)
-            this._buildAvailabilityScoreFunction(stocksMap),
-            // Score de DLC (important pour l'anti-gaspillage)
+            // 1. FILTRE STRICT : Availability score (0.0 ou 10.0 seulement)
+            {
+              filter: { match_all: {} },
+              script_score: {
+                script: {
+                  source: `
+                    if (params._source == null || params._source.ingredients == null) {
+                      return 10.0; // No ingredients required, perfect availability
+                    }
+                    int totalIngredients = params._source.ingredients.size();
+                    int availableIngredients = 0;
+                    for (int i = 0; i < params._source.ingredients.size(); i++) {
+                      def ingredient = params._source.ingredients.get(i);
+                      boolean ingredientAvailable = false;
+
+                      if (ingredient.id != null) {
+                        // Chercher toutes les variantes d'unités pour cet ingrédient
+                        def unitVariants = ["g", "ml", "piece"];
+                        for (def unit : unitVariants) {
+                          String stockKey = ingredient.id + "_" + unit;
+                          if (params.stocks.containsKey(stockKey)) {
+                            def stock = params.stocks[stockKey];
+                            if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
+                              ingredientAvailable = true;
+                              break; // Une variante suffit
+                            }
+                          }
+                        }
+                      }
+
+                      if (ingredientAvailable) {
+                        availableIngredients++;
+                      }
+                    }
+                    if (totalIngredients > 0) {
+                      // Score binaire : 100 pour 100% makeable, 0 sinon
+                      if (availableIngredients == totalIngredients) {
+                        return 100.0;
+                      } else {
+                        return 0.0;
+                      }
+                    }
+                    return 100.0;
+                  `,
+                  params: { stocks: stocksMap },
+                },
+              },
+              weight: 2,
+            },
+            // 2. RANKING ANTI-GASPILLAGE : Score DLC pour prioriser les produits qui périment
             this._buildDlcScoreFunction(dlcMap),
           ],
           score_mode: 'sum',
           boost_mode: 'replace',
-          min_score: 1.5, // Score minimum pour considérer une recette comme réalisable
+          min_score: 100.0, // Seulement les recettes 100% makeables
         },
       },
       sort: [{ _score: { order: 'desc' } }],
-      size: 50,
+      size: 5,
     };
 
     try {
+      console.log(
+        `Querying Elasticsearch for findMakeableRecipes: ${JSON.stringify(
+          searchRequest,
+          null,
+          2,
+        )}`,
+      );
       const result = await this.client.search<RecipeSource>(searchRequest);
 
-      // Filtrer pour ne garder que les recettes avec un availability score parfait
+      // Les recettes sont déjà filtrées par la query script, pas besoin de filtrer ici
       const recipes: ScoredRecipe[] = result.hits.hits
-        .filter((hit) => hit._id && hit._source && (hit._score || 0) >= 1.5)
+        .filter((hit) => hit._id && hit._source && hit._score)
         .map((hit) => ({
           ...(hit._source as RecipeTemp),
           id: hit._id!,
@@ -254,10 +377,16 @@ export class ElasticsearchService implements OnModuleInit {
         total: recipes.length,
         results: recipes,
       };
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.error(
         'Erreur lors de la recherche des recettes réalisables:',
-        error,
+        errorMessage,
+      );
+      this.logger.error(
+        'Search request was:',
+        JSON.stringify(searchRequest, null, 2),
       );
       // En cas d'erreur, retourner une liste vide plutôt que de planter
       return {
@@ -410,15 +539,14 @@ export class ElasticsearchService implements OnModuleInit {
                       int dlcCount = 0;
                       for (int i = 0; i < params._source.ingredients.size(); i++) {
                         def ingredient = params._source.ingredients.get(i);
-                        if (ingredient.productId != null && params.dlc.containsKey(ingredient.productId)) {
-                          long dlcDate = ZonedDateTime.parse(params.dlc[ingredient.productId]).toInstant().toEpochMilli();
+                        if (ingredient.id != null && params.dlc.containsKey(ingredient.id)) {
+                          long dlcDate = ZonedDateTime.parse(params.dlc[ingredient.id]).toInstant().toEpochMilli();
                           long diff = dlcDate - today;
                           if (diff > 0) {
                             double days = diff / (1000.0 * 60 * 60 * 24);
-                            dlcScore += 1.0 / (1.0 + days); 
-                          } else {
-                            dlcScore -= 1.0; 
+                            dlcScore += 1.0 / (1.0 + days);
                           }
+                          // Ne pas pénaliser les produits expirés car ils sont déjà filtrés
                           dlcCount++;
                         }
                       }
@@ -505,19 +633,35 @@ export class ElasticsearchService implements OnModuleInit {
             int dlcCount = 0;
             for (int i = 0; i < params._source.ingredients.size(); i++) {
               def ingredient = params._source.ingredients.get(i);
-              if (ingredient.id != null && params.dlc.containsKey(ingredient.id)) {
-                long dlcDate = java.time.ZonedDateTime.parse(params.dlc[ingredient.id]).toInstant().toEpochMilli();
-                long diff = dlcDate - today;
-                if (diff > 0) {
-                  double days = diff / (1000.0 * 60 * 60 * 24);
-                  dlcScore += 1.0 / (1.0 + days);
-                } else {
-                  dlcScore -= 1.0;
+              double bestDlcScore = 0.0;
+              boolean ingredientFound = false;
+
+              if (ingredient.id != null) {
+                // Chercher toutes les variantes d'unités pour cet ingrédient
+                def unitVariants = ["g", "ml", "piece"];
+                for (def unit : unitVariants) {
+                  String dlcKey = ingredient.id + "_" + unit;
+                  if (params.dlc.containsKey(dlcKey)) {
+                    long dlcDate = java.time.ZonedDateTime.parse(params.dlc[dlcKey]).toInstant().toEpochMilli();
+                    long diff = dlcDate - today;
+                    if (diff > 0) {
+                      double days = diff / (1000.0 * 60 * 60 * 24);
+                      double currentScore = 1.0 / (1.0 + days);
+                      bestDlcScore = Math.max(bestDlcScore, currentScore);
+                      ingredientFound = true;
+                    }
+                  }
                 }
+              }
+
+              if (ingredientFound) {
+                dlcScore += bestDlcScore;
                 dlcCount++;
               }
             }
-            return dlcCount > 0 ? dlcScore / dlcCount : 0;
+            // Somme avec bonus logarithmique pour favoriser les recettes multi-ingrédients
+            double finalScore = dlcCount > 0 ? dlcScore * (1 + Math.log(1 + dlcCount)) : 0;
+            return Math.max(0.0, finalScore); // Garantir un score non-négatif
           `,
           params: { dlc: dlcMap },
         },
@@ -587,11 +731,18 @@ export class ElasticsearchService implements OnModuleInit {
                 }
               }
               
-              // FALLBACK: Ancien comportement pour compatibilité
-              if (!ingredientAvailable && ingredient.id != null && params.stocks.containsKey(ingredient.id)) {
-                def stock = params.stocks[ingredient.id];
-                if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
-                  ingredientAvailable = true;
+              // FALLBACK: Chercher toutes les variantes d'unités pour compatibilité
+              if (!ingredientAvailable && ingredient.id != null) {
+                def unitVariants = ["g", "ml", "piece"];
+                for (def unit : unitVariants) {
+                  String stockKey = ingredient.id + "_" + unit;
+                  if (params.stocks.containsKey(stockKey)) {
+                    def stock = params.stocks[stockKey];
+                    if (stock.baseUnit == ingredient.baseUnit && stock.normalizedQuantity >= ingredient.normalizedQuantity) {
+                      ingredientAvailable = true;
+                      break; // Une variante suffit
+                    }
+                  }
                 }
               }
               

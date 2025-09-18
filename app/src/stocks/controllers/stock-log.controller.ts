@@ -158,15 +158,25 @@ export class StockLogController {
         quantitySaved: Number(log.quantitySaved),
         reason: log.reason,
         createdAt: log.createdAt,
-        stock: {
-          id: log.stock.id,
-          product: {
-            id: log.stock.product.id,
-            name: log.stock.product.name,
-          },
-          quantity: Number(log.stock.quantity),
-          dlc: log.stock.dlc,
-        },
+        stock: log.stock
+          ? {
+              id: log.stock.id,
+              product: {
+                id: log.stock.product.id,
+                name: log.stock.product.name,
+              },
+              quantity: Number(log.stock.quantity),
+              dlc: log.stock.dlc,
+            }
+          : {
+              id: log.stockId || 'deleted',
+              product: {
+                id: log.stockId || 'deleted',
+                name: log.productName || 'Produit supprimé',
+              },
+              quantity: Number(log.quantityBefore),
+              dlc: log.dlcBefore,
+            },
       })),
     };
   }
