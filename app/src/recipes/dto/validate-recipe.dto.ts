@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsPositive, IsString, Min } from 'class-validator';
+import { IsOptional, IsPositive, IsString, IsUUID, Min } from 'class-validator';
 
 export class ValidateRecipeDto {
   @ApiProperty({
@@ -19,4 +19,13 @@ export class ValidateRecipeDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({
+    description: 'ID du foyer pour utiliser le stock spécifique (optionnel)',
+    example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID('4', { message: "L'ID du foyer doit être un UUID valide" })
+  householdId?: string;
 }

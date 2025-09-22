@@ -14,6 +14,8 @@ import { Difficulty, NutriScore } from './dto/create-recipe.dto';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
 import { Recipe } from './entities/recipe.entity';
 import { RecipeService } from './recipe.service';
+import { UnitConversionService } from 'src/common/units/unit-conversion.service';
+import { HouseholdService } from '../households/household.service';
 
 describe('RecipeService', () => {
   let service: RecipeService;
@@ -173,6 +175,16 @@ describe('RecipeService', () => {
           provide: EventEmitter2,
           useValue: {
             emit: jest.fn(),
+          },
+        },
+        {
+          provide: UnitConversionService,
+          useClass: UnitConversionService,
+        },
+        {
+          provide: HouseholdService,
+          useValue: {
+            getUserMembership: jest.fn(),
           },
         },
       ],

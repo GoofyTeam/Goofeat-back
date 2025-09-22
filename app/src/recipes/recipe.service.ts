@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import {
   paginate,
 } from 'nestjs-paginate';
 import { UnitConversionService } from 'src/common/units/unit-conversion.service';
+import { HouseholdService } from 'src/households/household.service';
 import { StockLog, StockLogAction } from 'src/stocks/entities/stock-log.entity';
 import { Stock } from 'src/stocks/entities/stock.entity';
 import { User } from 'src/users/entity/user.entity';
@@ -44,6 +46,7 @@ export class RecipeService {
     private readonly stockLogRepository: Repository<StockLog>,
     private readonly unitConversionService: UnitConversionService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly householdService: HouseholdService,
   ) {}
 
   async create(createRecipeDto: CreateRecipeDto): Promise<Recipe> {
@@ -233,11 +236,40 @@ export class RecipeService {
     // 2. Calculer le ratio d'ajustement
     const scalingRatio = validateRecipeDto.servings / recipe.servings;
 
-    // 3. Récupérer le stock de l'utilisateur
+    // 3. Récupérer le stock
+    let whereCondition: any;
+
+    if (validateRecipeDto.householdId) {
+      const membership = await this.householdService.getUserMembership(
+        user.id,
+        validateRecipeDto.householdId,
+      );
+      if (!membership) {
+        throw new ForbiddenException("Vous n'êtes pas membre de ce foyer");
+      }
+
+      whereCondition = { household: { id: validateRecipeDto.householdId } };
+    } else {
+      //legacy ....
+      whereCondition = { user: { id: user.id }, household: null };
+    }
+
     const userStocks = await this.stockRepository.find({
-      where: { user: { id: user.id } },
+      where: whereCondition,
       relations: ['product', 'product.ingredients'],
     });
+
+    // //  debugger
+    // const logPrefix = `[ValidateRecipe] User ${user.id}`;
+    // if (validateRecipeDto.householdId) {
+    //   console.log(
+    //     `${logPrefix} - Validation avec foyer ${validateRecipeDto.householdId}, ${userStocks.length} stock(s) du foyer trouvé(s)`,
+    //   );
+    // } else {
+    //   console.log(
+    //     `${logPrefix} - Validation stocks personnels uniquement, ${userStocks.length} stock(s) trouvé(s)`,
+    //   );
+    // }
 
     const result: RecipeValidationResult = {
       success: false,
@@ -319,7 +351,7 @@ export class RecipeService {
 
         totalQuantityFromStocks += quantityToUse;
 
-        // Calculer les quantités avant/après en tenant compte du packaging
+        // Calculer les bonnes quantités avec conversion d'unités
         const stockUnit = stock.unit || stock.product.defaultUnit;
         if (!stockUnit) continue;
 
@@ -330,26 +362,29 @@ export class RecipeService {
           stock.product.packagingSize,
         );
 
-        const quantityBefore = stockResult.totalQuantity;
-        const quantityAfter = quantityBefore - quantityToUse;
+        const quantityBeforeInBase = stockResult.totalQuantity;
+        const quantityAfterInBase = quantityBeforeInBase - quantityToUse;
+
+        // Calculer la nouvelle quantité en unité de stockage (packs)
+        let newQuantityInPacks = quantityAfterInBase;
+        if (stock.product.packagingSize && stock.product.unitSize) {
+          newQuantityInPacks =
+            quantityAfterInBase /
+            (stock.product.packagingSize * stock.product.unitSize);
+        } else if (stock.product.unitSize) {
+          newQuantityInPacks = quantityAfterInBase / stock.product.unitSize;
+        }
 
         // Préparer les mises à jour de stock
         stockUpdatesMap.set(stock.id, {
           stockId: stock.id,
           productName: stock.product.name,
-          quantityBefore,
-          quantityAfter,
+          quantityBefore: quantityBeforeInBase,
+          quantityAfter: quantityAfterInBase,
           quantityUsed: quantityToUse,
-          unit: stock.unit, // Utiliser l'unité du stock pour la mise à jour
+          unit: stockResult.baseUnit,
           stock: stock,
-          // Calculer la nouvelle quantité base pour la DB
-          newBaseQuantity:
-            stock.product.packagingSize && stock.product.unitSize
-              ? quantityAfter /
-                (stock.product.packagingSize * stock.product.unitSize)
-              : stock.product.unitSize
-                ? quantityAfter / stock.product.unitSize
-                : quantityAfter,
+          newQuantityInPacks: newQuantityInPacks,
         });
       }
 
@@ -414,30 +449,31 @@ export class RecipeService {
 
       for (const update of stockUpdates) {
         const stock = update.stock;
-        // Utiliser totalQuantity si disponible, sinon quantity
-        const effectiveQuantity = stock.totalQuantity || stock.quantity;
-        const quantityBefore = effectiveQuantity;
-        const quantityAfter = quantityBefore - update.quantityUsed;
 
-        // Mettre à jour le stock
-        const updateData: any = {
-          quantity: quantityAfter,
-        };
+        // Recalculer totalQuantity à partir de la nouvelle quantity
+        const stockUnit = stock.unit || stock.product.defaultUnit;
+        const newStockResult =
+          this.unitConversionService.calculateTotalQuantity(
+            update.newQuantityInPacks,
+            stockUnit,
+            stock.product.unitSize,
+            stock.product.packagingSize,
+          );
 
-        // Si totalQuantity existe, la mettre à jour aussi
-        if (stock.totalQuantity !== undefined && stock.totalQuantity !== null) {
-          updateData.totalQuantity = quantityAfter;
-        }
-
-        await this.stockRepository.update(stock.id, updateData);
+        // Utiliser les quantités correctement calculées
+        await this.stockRepository.update(stock.id, {
+          quantity: update.newQuantityInPacks,
+          totalQuantity: newStockResult.totalQuantity,
+          baseUnit: newStockResult.baseUnit,
+        });
 
         // Créer le log
         const stockLog = this.stockLogRepository.create({
           stock: { id: stock.id },
           user: { id: user.id },
           action: StockLogAction.CONSUME,
-          quantityBefore,
-          quantityAfter,
+          quantityBefore: update.quantityBefore,
+          quantityAfter: update.quantityAfter,
           quantityUsed: update.quantityUsed,
           reason: `Recette: ${recipe.name} (${validateRecipeDto.servings} portions)`,
           metadata: {
@@ -456,8 +492,8 @@ export class RecipeService {
         result.stockUpdates.push({
           stockId: stock.id,
           productName: stock.product.name,
-          quantityBefore,
-          quantityAfter,
+          quantityBefore: update.quantityBefore,
+          quantityAfter: update.quantityAfter,
           quantityUsed: update.quantityUsed,
           unit: update.unit,
         });

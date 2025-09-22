@@ -238,7 +238,7 @@ export class RecipeController {
   @ApiOperation({
     summary: 'Valider et cuisiner une recette',
     description:
-      'Vérifie la disponibilité des ingrédients, ajuste les quantités selon le nombre de personnes et met à jour automatiquement le stock',
+      'Vérifie la disponibilité des ingrédients dans le stock du foyer spécifié (ou tous les stocks si non spécifié), ajuste les quantités selon le nombre de personnes et met à jour automatiquement le stock',
   })
   @ApiResponse({
     status: 200,

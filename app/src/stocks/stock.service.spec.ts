@@ -97,9 +97,7 @@ describe('StockService', () => {
         },
         {
           provide: UnitConversionService,
-          useValue: {
-            calculateTotalQuantity: jest.fn(),
-          },
+          useClass: UnitConversionService,
         },
         {
           provide: DlcRulesService,
