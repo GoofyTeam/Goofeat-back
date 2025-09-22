@@ -16,6 +16,10 @@ spec:
     metadata:
       labels:
         app: goofeat-back
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "3000"
     spec:
       containers:
         - name: app
@@ -30,6 +34,10 @@ spec:
           ports:
             - containerPort: 3000
               protocol: TCP
+              name: http
+            - containerPort: 9090
+              protocol: TCP
+              name: metrics
           resources:
             requests:
               memory: '1Gi'

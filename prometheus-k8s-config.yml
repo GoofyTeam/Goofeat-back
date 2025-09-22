@@ -1,0 +1,58 @@
+# Configuration à ajouter dans votre ./monitoring/prometheus.yml existant
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Vos configs existantes...
+
+  # Nouveau job pour découvrir les ServiceMonitors Kubernetes
+  - job_name: 'kubernetes-servicemonitors'
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+            - goofeat  # Votre namespace d'application
+            - monitoring  # Si vous avez d'autres ServiceMonitors
+    relabel_configs:
+      # Garder seulement les services avec annotation prometheus.io/scrape=true
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+
+      # Utiliser le path spécifié dans l'annotation (défaut: /metrics)
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+
+      # Utiliser le port spécifié dans l'annotation
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+
+      # Ajouter les labels Kubernetes comme métriques
+      - action: labelmap
+        regex: __meta_kubernetes_service_label_(.+)
+
+      # Ajouter le namespace comme label
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+
+      # Ajouter le nom du service comme label
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        target_label: kubernetes_service_name
+
+  # Job pour scraper directement votre app Goofeat (backup)
+  - job_name: 'goofeat-app-direct'
+    static_configs:
+      - targets:
+          # Remplacez par l'IP externe de votre service K8s Goofeat
+          - 'YOUR_K8S_SERVICE_EXTERNAL_IP:3000'
+    metrics_path: '/metrics'
+    scrape_interval: 30s
